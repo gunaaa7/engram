@@ -1,26 +1,93 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #060914;
+  --background-elevated: rgba(12, 17, 28, 0.9);
+  --foreground: #f5f7fb;
+  --muted: #93a3bb;
+  --line: rgba(148, 163, 184, 0.14);
+  --panel-shadow: 0 30px 90px rgba(2, 6, 23, 0.42);
+  --font-sans-stack: "Aptos", "Segoe UI Variable Display", "Trebuchet MS", sans-serif;
+  --font-mono-stack: "Cascadia Code", "Consolas", "SFMono-Regular", monospace;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-muted: var(--muted);
+  --font-sans: var(--font-sans-stack);
+  --font-mono: var(--font-mono-stack);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background:
+    radial-gradient(circle at top left, rgba(36, 89, 178, 0.26), transparent 34%),
+    radial-gradient(circle at top right, rgba(14, 116, 144, 0.18), transparent 28%),
+    radial-gradient(circle at bottom center, rgba(59, 130, 246, 0.12), transparent 36%),
+    linear-gradient(180deg, #0a0d18 0%, #05070f 100%);
 }
 
 body {
-  background: var(--background);
+  background: transparent;
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans-stack);
+}
+
+body::before {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.045) 1px, transparent 1px);
+  background-size: 42px 42px;
+  content: "";
+  mask-image: radial-gradient(circle at center, black, transparent 78%);
+}
+
+body::after {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(125, 211, 252, 0.08), transparent 18%),
+    radial-gradient(circle at 82% 12%, rgba(34, 197, 94, 0.06), transparent 20%),
+    radial-gradient(circle at 55% 85%, rgba(56, 189, 248, 0.08), transparent 22%);
+  content: "";
+}
+
+a,
+button,
+input,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+::selection {
+  background: rgba(56, 189, 248, 0.3);
+  color: var(--foreground);
+}
+
+.glass-panel {
+  background:
+    linear-gradient(180deg, rgba(11, 16, 26, 0.96), rgba(7, 11, 20, 0.88)),
+    rgba(7, 11, 20, 0.74);
+  border: 1px solid var(--line);
+  box-shadow: var(--panel-shadow);
+  border-radius: 2rem;
+  backdrop-filter: blur(24px);
+}
+
+.panel-surface {
+  background: linear-gradient(180deg, rgba(12, 23, 35, 0.96), rgba(8, 18, 29, 0.96));
+  box-shadow: var(--panel-shadow);
+}
+
+.noise-overlay {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.03) 0.75px, transparent 0.75px);
+  background-size: 12px 12px;
 }
