@@ -104,12 +104,24 @@ Notes:
 
 ## Database Setup
 
-Apply [`db/schema.sql`](/C:/Guna/Projects/engram/db/schema.sql) in your Supabase SQL editor. The schema currently does the following:
+The repo now keeps database changes in ordered SQL files under [`db/migrations/`](/C:/Guna/Projects/engram/db/migrations). For a new environment, apply them in order:
+
+1. [`db/migrations/0001_extensions.sql`](/C:/Guna/Projects/engram/db/migrations/0001_extensions.sql)
+2. [`db/migrations/0002_entries.sql`](/C:/Guna/Projects/engram/db/migrations/0002_entries.sql)
+3. [`db/migrations/0003_chat_tables.sql`](/C:/Guna/Projects/engram/db/migrations/0003_chat_tables.sql)
+4. [`db/migrations/0004_chat_triggers.sql`](/C:/Guna/Projects/engram/db/migrations/0004_chat_triggers.sql)
+5. [`db/migrations/0005_match_entries.sql`](/C:/Guna/Projects/engram/db/migrations/0005_match_entries.sql)
+
+[`db/schema.sql`](/C:/Guna/Projects/engram/db/schema.sql) remains as the full current snapshot for reference and fresh bootstrap use. New DB changes should go into a new migration file first, then be copied into the snapshot.
+
+The current schema does the following:
 
 - enables `vector`
 - enables `pgcrypto`
 - creates the `entries` table if needed
 - adds `source` and `input_metadata` columns if they are missing
+- creates persisted chat thread/message/source tables
+- updates thread activity timestamps through database triggers
 - enables row level security
 - keeps retrieval on exact search by default
 - defines the `match_entries` RPC used by `/api/query`
@@ -177,7 +189,8 @@ app/
   api/
     entries/route.ts        # GET and POST entries
     entries/[id]/route.ts   # DELETE entry
-    query/route.ts          # semantic query + synthesis
+    chats/route.ts          # GET persisted chat threads + turns
+    query/route.ts          # semantic query + synthesis + chat persistence
   globals.css
   layout.tsx
   page.tsx
@@ -189,6 +202,13 @@ components/
   AnswerCard.tsx
   ui/
 db/
+  migrations/
+    0001_extensions.sql
+    0002_entries.sql
+    0003_chat_tables.sql
+    0004_chat_triggers.sql
+    0005_match_entries.sql
+  README.md
   schema.sql
 docs/
   engram_prd.md
@@ -197,6 +217,7 @@ lib/
   embeddings.ts
   synthesis.ts
   prompts.ts
+  chats.ts
   supabase.ts
   types.ts
   utils.ts

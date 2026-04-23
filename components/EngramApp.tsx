@@ -11,26 +11,15 @@ import { EntryCard } from "@/components/EntryCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { buildThreadTitle } from "@/lib/chats";
 import { cn, formatEntryDate } from "@/lib/utils";
-import type { Entry, QueryResponse } from "@/lib/types";
+import type { ChatThread, ChatTurn, Entry, QueryResponse } from "@/lib/types";
 
 type ApiError = {
   error?: string;
 };
 
-type ChatTurn = {
-  id: string;
-  answer: string;
-  createdAt: string;
-  question: string;
-  sources: Entry[];
-  state: "loading" | "complete" | "error";
-};
-
-const EMPTY_QUERY_STATE: QueryResponse = {
-  answer: "",
-  sources: [],
-};
+const EMPTY_QUERY_STATE: QueryResponse["sources"] = [];
 
 const PROMPT_SUGGESTIONS = [
   "What did I promise to follow up on this week?",
@@ -53,17 +42,15 @@ async function readErrorMessage(response: Response) {
   }
 }
 
-function buildTurnTitle(question: string) {
-  if (question.length <= 44) {
-    return question;
-  }
-
-  return `${question.slice(0, 41)}...`;
-}
-
 function getSourceLabel(entry: Entry) {
   const source = entry.source.trim();
   return source ? source : "memory";
+}
+
+function sortThreadsByUpdatedAt(threads: ChatThread[]) {
+  return [...threads].sort((left, right) => {
+    return Date.parse(right.updated_at) - Date.parse(left.updated_at);
+  });
 }
 
 function EmptyThread({
@@ -355,17 +342,19 @@ function ComposerCard({
 
 export function EngramApp() {
   const [entries, setEntries] = useState<Entry[]>([]);
+  const [threads, setThreads] = useState<ChatThread[]>([]);
   const [entriesLoading, setEntriesLoading] = useState(true);
+  const [chatsLoading, setChatsLoading] = useState(true);
   const [captureDraft, setCaptureDraft] = useState("");
   const [queryDraft, setQueryDraft] = useState("");
-  const [queryState, setQueryState] = useState<QueryResponse>(EMPTY_QUERY_STATE);
   const [captureError, setCaptureError] = useState<string | null>(null);
   const [queryError, setQueryError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isQuerying, setIsQuerying] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [turns, setTurns] = useState<ChatTurn[]>([]);
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [activeTurnId, setActiveTurnId] = useState<string | null>(null);
+  const [draftTurns, setDraftTurns] = useState<ChatTurn[]>([]);
   const [isCaptureOpen, setIsCaptureOpen] = useState(false);
 
   const threadEndRef = useRef<HTMLDivElement | null>(null);
@@ -373,54 +362,120 @@ export function EngramApp() {
   useEffect(() => {
     let cancelled = false;
 
-    async function loadEntries() {
+    async function loadAppState() {
       try {
-        const response = await fetch("/api/entries", {
-          cache: "no-store",
-        });
+        const [entriesResponse, chatsResponse] = await Promise.all([
+          fetch("/api/entries", {
+            cache: "no-store",
+          }),
+          fetch("/api/chats", {
+            cache: "no-store",
+          }),
+        ]);
 
-        if (!response.ok) {
-          throw new Error(await readErrorMessage(response));
+        if (!entriesResponse.ok) {
+          throw new Error(await readErrorMessage(entriesResponse));
         }
 
-        const data = (await response.json()) as Entry[];
+        if (!chatsResponse.ok) {
+          throw new Error(await readErrorMessage(chatsResponse));
+        }
+
+        const [entriesData, chatsData] = (await Promise.all([
+          entriesResponse.json(),
+          chatsResponse.json(),
+        ])) as [Entry[], ChatThread[]];
 
         if (!cancelled) {
           startTransition(() => {
-            setEntries(data);
+            setEntries(entriesData);
+            setThreads(chatsData);
+            setActiveThreadId(chatsData[0]?.id ?? null);
+            setActiveTurnId(
+              chatsData[0]?.turns[chatsData[0].turns.length - 1]?.id ?? null,
+            );
           });
         }
       } catch (error) {
-        console.error("Failed to load entries:", error);
+        console.error("Failed to load app state:", error);
 
         if (!cancelled) {
           setCaptureError(
-            error instanceof Error ? error.message : "Failed to load entries.",
+            error instanceof Error
+              ? error.message
+              : "Failed to load saved data.",
           );
         }
       } finally {
         if (!cancelled) {
           setEntriesLoading(false);
+          setChatsLoading(false);
         }
       }
     }
 
-    void loadEntries();
+    void loadAppState();
 
     return () => {
       cancelled = true;
     };
   }, []);
 
+  const activeThread =
+    threads.find((thread) => thread.id === activeThreadId) ?? null;
+  const currentTurns = activeThread ? activeThread.turns : draftTurns;
+  const activeTurn =
+    currentTurns.find((turn) => turn.id === activeTurnId) ??
+    currentTurns[currentTurns.length - 1];
+  const selectedTurnId = activeTurn?.id ?? null;
+  const latestQuerySources =
+    [...currentTurns]
+      .reverse()
+      .find((turn) => turn.state === "complete")
+      ?.sources ?? EMPTY_QUERY_STATE;
+
   useEffect(() => {
     threadEndRef.current?.scrollIntoView({
       behavior: "smooth",
       block: "end",
     });
-  }, [turns]);
+  }, [currentTurns]);
 
-  const activeTurn =
-    turns.find((turn) => turn.id === activeTurnId) ?? turns[turns.length - 1];
+  function selectThread(threadId: string | null) {
+    const nextThread =
+      threads.find((thread) => thread.id === threadId) ?? null;
+
+    setActiveThreadId(threadId);
+    setActiveTurnId(nextThread?.turns[nextThread.turns.length - 1]?.id ?? null);
+    setQueryError(null);
+  }
+
+  function updateDraftTurn(turnId: string, updater: (turn: ChatTurn) => ChatTurn) {
+    setDraftTurns((currentTurns) =>
+      currentTurns.map((turn) => (turn.id === turnId ? updater(turn) : turn)),
+    );
+  }
+
+  function updatePersistedTurn(
+    threadId: string,
+    turnId: string,
+    updater: (turn: ChatTurn) => ChatTurn,
+  ) {
+    setThreads((currentThreads) =>
+      currentThreads.map((thread) => {
+        if (thread.id !== threadId) {
+          return thread;
+        }
+
+        return {
+          ...thread,
+          turns: thread.turns.map((turn) =>
+            turn.id === turnId ? updater(turn) : turn,
+          ),
+        };
+      }),
+    );
+  }
 
   async function handleSaveEntry() {
     const content = captureDraft.trim();
@@ -500,16 +555,21 @@ export function EngramApp() {
         setEntries((currentEntries) =>
           currentEntries.filter((entry) => entry.id !== id),
         );
-        setTurns((currentTurns) =>
+        setThreads((currentThreads) =>
+          currentThreads.map((thread) => ({
+            ...thread,
+            turns: thread.turns.map((turn) => ({
+              ...turn,
+              sources: turn.sources.filter((entry) => entry.id !== id),
+            })),
+          })),
+        );
+        setDraftTurns((currentTurns) =>
           currentTurns.map((turn) => ({
             ...turn,
             sources: turn.sources.filter((entry) => entry.id !== id),
           })),
         );
-        setQueryState((currentState) => ({
-          ...currentState,
-          sources: currentState.sources.filter((entry) => entry.id !== id),
-        }));
       });
     } catch (error) {
       console.error("Failed to delete entry:", error);
@@ -533,26 +593,43 @@ export function EngramApp() {
       return;
     }
 
-    const turnId = crypto.randomUUID();
-    const createdAt = new Date().toISOString();
+    const pendingTurnId = crypto.randomUUID();
+    const pendingTurn: ChatTurn = {
+      answer: "",
+      createdAt: new Date().toISOString(),
+      id: pendingTurnId,
+      question,
+      sources: [],
+      state: "loading",
+    };
+    const submittingThreadId = activeThreadId;
 
     setQueryError(null);
     setIsQuerying(true);
     setQueryDraft("");
 
     startTransition(() => {
-      setTurns((currentTurns) => [
-        ...currentTurns,
-        {
-          id: turnId,
-          answer: "",
-          createdAt,
-          question,
-          sources: [],
-          state: "loading",
-        },
-      ]);
-      setActiveTurnId(turnId);
+      if (submittingThreadId) {
+        setThreads((currentThreads) =>
+          sortThreadsByUpdatedAt(
+            currentThreads.map((thread) => {
+              if (thread.id !== submittingThreadId) {
+                return thread;
+              }
+
+              return {
+                ...thread,
+                turns: [...thread.turns, pendingTurn],
+                updated_at: pendingTurn.createdAt,
+              };
+            }),
+          ),
+        );
+      } else {
+        setDraftTurns((currentTurns) => [...currentTurns, pendingTurn]);
+      }
+
+      setActiveTurnId(pendingTurnId);
     });
 
     try {
@@ -561,7 +638,10 @@ export function EngramApp() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify({
+          question,
+          threadId: submittingThreadId,
+        }),
       });
 
       if (!response.ok) {
@@ -571,20 +651,44 @@ export function EngramApp() {
       const data = (await response.json()) as QueryResponse;
 
       startTransition(() => {
-        setTurns((currentTurns) =>
-          currentTurns.map((turn) =>
-            turn.id === turnId
-              ? {
-                  ...turn,
-                  answer: data.answer,
-                  sources: data.sources,
-                  state: "complete",
+        if (submittingThreadId) {
+          setThreads((currentThreads) =>
+            sortThreadsByUpdatedAt(
+              currentThreads.map((thread) => {
+                if (thread.id !== data.thread.id) {
+                  return thread;
                 }
-              : turn,
-          ),
-        );
-        setQueryState(data);
+
+                return {
+                  ...thread,
+                  ...data.thread,
+                  turns: thread.turns.map((turn) =>
+                    turn.id === pendingTurnId ? data.turn : turn,
+                  ),
+                };
+              }),
+            ),
+          );
+        } else {
+          setDraftTurns([]);
+          setThreads((currentThreads) =>
+            sortThreadsByUpdatedAt([
+              {
+                ...data.thread,
+                turns: [data.turn],
+              },
+              ...currentThreads.filter((thread) => thread.id !== data.thread.id),
+            ]),
+          );
+          setActiveThreadId(data.thread.id);
+        }
+
+        setActiveTurnId(data.turn.id);
       });
+
+      if (data.turn.state === "error") {
+        setQueryError(data.turn.answer);
+      }
     } catch (error) {
       console.error("Failed to query entries:", error);
 
@@ -594,17 +698,19 @@ export function EngramApp() {
       setQueryError(message);
 
       startTransition(() => {
-        setTurns((currentTurns) =>
-          currentTurns.map((turn) =>
-            turn.id === turnId
-              ? {
-                  ...turn,
-                  answer: message,
-                  state: "error",
-                }
-              : turn,
-          ),
-        );
+        if (submittingThreadId) {
+          updatePersistedTurn(submittingThreadId, pendingTurnId, (turn) => ({
+            ...turn,
+            answer: message,
+            state: "error",
+          }));
+        } else {
+          updateDraftTurn(pendingTurnId, (turn) => ({
+            ...turn,
+            answer: message,
+            state: "error",
+          }));
+        }
       });
     } finally {
       setIsQuerying(false);
@@ -612,11 +718,11 @@ export function EngramApp() {
   }
 
   function handleResetConversation() {
-    setTurns([]);
+    setDraftTurns([]);
+    setActiveThreadId(null);
     setActiveTurnId(null);
     setQueryDraft("");
     setQueryError(null);
-    setQueryState(EMPTY_QUERY_STATE);
   }
 
   return (
@@ -654,31 +760,53 @@ export function EngramApp() {
                 Recent chats
               </p>
               <div className="mt-3 space-y-2">
-                {turns.length > 0 ? (
-                  [...turns].reverse().map((turn) => (
+                {!activeThread && draftTurns.length > 0 ? (
+                  <button
+                    className="w-full rounded-[1.4rem] border border-cyan-300/30 bg-cyan-400/10 px-4 py-3 text-left transition"
+                    onClick={() => setActiveTurnId(draftTurns[draftTurns.length - 1]?.id ?? null)}
+                    type="button"
+                  >
+                    <p className="text-sm font-medium text-white">
+                      {buildThreadTitle(draftTurns[0].question)}
+                    </p>
+                    <p className="mt-2 text-xs text-slate-400">
+                      Draft chat
+                    </p>
+                  </button>
+                ) : null}
+
+                {chatsLoading ? (
+                  Array.from({ length: 4 }).map((_, index) => (
+                    <div
+                      className="h-20 animate-pulse rounded-[1.5rem] border border-white/8 bg-white/5"
+                      key={index}
+                    />
+                  ))
+                ) : threads.length > 0 ? (
+                  threads.map((thread) => (
                     <button
                       className={cn(
                         "w-full rounded-[1.4rem] border px-4 py-3 text-left transition",
-                        activeTurnId === turn.id
+                        activeThreadId === thread.id
                           ? "border-cyan-300/30 bg-cyan-400/10"
                           : "border-transparent bg-white/4 hover:border-white/10 hover:bg-white/8",
                       )}
-                      key={turn.id}
-                      onClick={() => setActiveTurnId(turn.id)}
+                      key={thread.id}
+                      onClick={() => selectThread(thread.id)}
                       type="button"
                     >
                       <p className="text-sm font-medium text-white">
-                        {buildTurnTitle(turn.question)}
+                        {thread.title}
                       </p>
                       <p className="mt-2 text-xs text-slate-400">
-                        {formatEntryDate(turn.createdAt)}
+                        {formatEntryDate(thread.updated_at)}
                       </p>
                     </button>
                   ))
                 ) : (
                   <div className="rounded-[1.5rem] border border-dashed border-white/10 bg-white/4 px-4 py-6 text-sm leading-6 text-slate-400">
-                    No thread yet. Your first question becomes the start of the
-                    conversation history.
+                    No saved chats yet. Your first question starts a thread in
+                    Supabase.
                   </div>
                 )}
               </div>
@@ -751,8 +879,8 @@ export function EngramApp() {
               </div>
               <div className="flex items-center gap-2">
                 <Badge variant="outline">
-                  {queryState.sources.length > 0
-                    ? `${queryState.sources.length} refs in latest answer`
+                  {latestQuerySources.length > 0
+                    ? `${latestQuerySources.length} refs in latest answer`
                     : "Grounded answers"}
                 </Badge>
                 <Button
@@ -766,13 +894,13 @@ export function EngramApp() {
               </div>
             </div>
 
-            {turns.length > 0 ? (
+            {currentTurns.length > 0 ? (
               <div className="mt-4 flex gap-2 overflow-x-auto pb-1 lg:hidden">
-                {[...turns].reverse().map((turn) => (
+                {[...currentTurns].reverse().map((turn) => (
                   <button
                     className={cn(
                       "shrink-0 rounded-full border px-3 py-2 text-xs transition",
-                      activeTurnId === turn.id
+                      selectedTurnId === turn.id
                         ? "border-cyan-300/30 bg-cyan-400/10 text-cyan-100"
                         : "border-white/10 bg-white/5 text-slate-300",
                     )}
@@ -780,7 +908,7 @@ export function EngramApp() {
                     onClick={() => setActiveTurnId(turn.id)}
                     type="button"
                   >
-                    {buildTurnTitle(turn.question)}
+                    {buildThreadTitle(turn.question)}
                   </button>
                 ))}
               </div>
@@ -788,14 +916,14 @@ export function EngramApp() {
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
-            {turns.length === 0 ? (
+            {currentTurns.length === 0 ? (
               <EmptyThread
                 entriesCount={entries.length}
                 onPromptClick={(value) => void handleSubmitQuery(value)}
               />
             ) : (
               <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 py-2">
-                {turns.map((turn) => (
+                {currentTurns.map((turn) => (
                   <ThreadMessage
                     active={activeTurn?.id === turn.id}
                     key={turn.id}

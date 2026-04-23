@@ -1,26 +1,49 @@
 import { NextResponse } from "next/server";
 
+import { buildChatTurn, buildThreadTitle } from "@/lib/chats";
 import { embed } from "@/lib/embeddings";
 import { jsonError, parseJsonBody } from "@/lib/http";
-import {
-  NO_RELEVANT_MESSAGE,
-} from "@/lib/prompts";
+import { NO_RELEVANT_MESSAGE } from "@/lib/prompts";
 import { synthesizeAnswer } from "@/lib/synthesis";
 import { createServiceSupabaseClient } from "@/lib/supabase";
-import type { Entry, EntryMatch } from "@/lib/types";
+import type {
+  ChatThreadSummary,
+  Entry,
+  EntryMatch,
+  QueryResponse,
+} from "@/lib/types";
 
 export const runtime = "nodejs";
 
 const MATCH_COUNT = 5;
 const MIN_SIMILARITY = 0.2;
+const QUERY_FAILURE_MESSAGE =
+  "I hit a problem while searching memory for that question.";
 
 type QueryBody = {
   question?: unknown;
+  threadId?: unknown;
 };
 
 type EntryEmbeddingRow = Entry & {
   embedding: number[] | string | null;
 };
+
+type ChatMessageInsertRow = {
+  content: string;
+  created_at: string;
+  id: string;
+  status: "complete" | "error";
+};
+
+function parseThreadId(value: unknown) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalizedValue = value.trim();
+  return normalizedValue || null;
+}
 
 function parseVector(value: number[] | string | null) {
   if (!value) {
@@ -125,6 +148,104 @@ async function getRelevantEntryMatches(
     .slice(0, MATCH_COUNT);
 }
 
+async function resolveThread(
+  threadId: string | null,
+  question: string,
+): Promise<ChatThreadSummary> {
+  const supabase = createServiceSupabaseClient();
+
+  if (threadId) {
+    const { data, error } = await supabase
+      .from("chat_threads")
+      .select("id, title, created_at, updated_at")
+      .eq("id", threadId)
+      .single();
+
+    if (error) {
+      console.error("POST /api/query failed to read thread:", error);
+      throw new Error("Chat not found.");
+    }
+
+    return data as ChatThreadSummary;
+  }
+
+  const { data, error } = await supabase
+    .from("chat_threads")
+    .insert({
+      title: buildThreadTitle(question),
+    })
+    .select("id, title, created_at, updated_at")
+    .single();
+
+  if (error) {
+    console.error("POST /api/query failed to create thread:", error);
+    throw new Error("Failed to create chat.");
+  }
+
+  return data as ChatThreadSummary;
+}
+
+async function getThreadSummary(threadId: string) {
+  const supabase = createServiceSupabaseClient();
+  const { data, error } = await supabase
+    .from("chat_threads")
+    .select("id, title, created_at, updated_at")
+    .eq("id", threadId)
+    .single();
+
+  if (error) {
+    console.error("POST /api/query failed to refresh thread:", error);
+    throw new Error("Failed to refresh chat.");
+  }
+
+  return data as ChatThreadSummary;
+}
+
+async function insertMessage(input: {
+  content: string;
+  role: "user" | "assistant";
+  status: "complete" | "error";
+  threadId: string;
+}) {
+  const supabase = createServiceSupabaseClient();
+  const { data, error } = await supabase
+    .from("chat_messages")
+    .insert({
+      content: input.content,
+      role: input.role,
+      status: input.status,
+      thread_id: input.threadId,
+    })
+    .select("id, content, status, created_at")
+    .single();
+
+  if (error) {
+    console.error("POST /api/query failed to create message:", error);
+    throw new Error("Failed to save chat message.");
+  }
+
+  return data as ChatMessageInsertRow;
+}
+
+async function insertMessageSources(messageId: string, sources: Entry[]) {
+  if (sources.length === 0) {
+    return;
+  }
+
+  const supabase = createServiceSupabaseClient();
+  const { error } = await supabase.from("chat_message_sources").insert(
+    sources.map((source) => ({
+      entry_id: source.id,
+      message_id: messageId,
+    })),
+  );
+
+  if (error) {
+    console.error("POST /api/query failed to save message sources:", error);
+    throw new Error("Failed to save chat sources.");
+  }
+}
+
 export async function POST(request: Request) {
   const body = await parseJsonBody<QueryBody>(request);
   const question =
@@ -134,53 +255,99 @@ export async function POST(request: Request) {
     return jsonError("Question is required.", 400);
   }
 
-  let queryEmbedding: number[];
+  let thread: ChatThreadSummary;
 
   try {
-    queryEmbedding = await embed(question, "query");
+    thread = await resolveThread(parseThreadId(body?.threadId), question);
   } catch (error) {
-    console.error("POST /api/query failed to generate embedding:", error);
-    return jsonError("Failed to generate query embedding.", 500);
+    return jsonError(
+      error instanceof Error ? error.message : "Failed to prepare chat.",
+      500,
+    );
   }
 
-  let matches: EntryMatch[];
+  let userMessage: ChatMessageInsertRow;
 
   try {
-    matches = await getRelevantEntryMatches(queryEmbedding);
+    userMessage = await insertMessage({
+      content: question,
+      role: "user",
+      status: "complete",
+      threadId: thread.id,
+    });
   } catch (error) {
-    console.error("POST /api/query failed during retrieval:", error);
-    return jsonError("Failed to retrieve relevant entries.", 500);
+    return jsonError(
+      error instanceof Error ? error.message : "Failed to save question.",
+      500,
+    );
   }
 
-  const relevantSources = matches
-    .filter((entry) => entry.similarity >= MIN_SIMILARITY)
-    .map<Entry>((entry) => ({
-      id: entry.id,
-      content: entry.content,
-      source: entry.source,
-      input_metadata: entry.input_metadata,
-      created_at: entry.created_at,
-    }));
-
-  if (relevantSources.length === 0) {
-    return NextResponse.json({
-      answer: NO_RELEVANT_MESSAGE,
-      sources: [],
-    });
-  }
+  let answer = NO_RELEVANT_MESSAGE;
+  let sources: Entry[] = [];
+  let turnState: "complete" | "error" = "complete";
 
   try {
-    const answer = await synthesizeAnswer({
-      question,
-      retrievedEntries: relevantSources,
+    const queryEmbedding = await embed(question, "query");
+    const matches = await getRelevantEntryMatches(queryEmbedding);
+
+    sources = matches
+      .filter((entry) => entry.similarity >= MIN_SIMILARITY)
+      .map<Entry>((entry) => ({
+        id: entry.id,
+        content: entry.content,
+        source: entry.source,
+        input_metadata: entry.input_metadata,
+        created_at: entry.created_at,
+      }));
+
+    if (sources.length > 0) {
+      answer = await synthesizeAnswer({
+        question,
+        retrievedEntries: sources,
+      });
+    }
+  } catch (error) {
+    console.error("POST /api/query failed during synthesis flow:", error);
+    answer =
+      error instanceof Error && error.message.trim()
+        ? error.message
+        : QUERY_FAILURE_MESSAGE;
+    sources = [];
+    turnState = "error";
+  }
+
+  let assistantMessage: ChatMessageInsertRow;
+
+  try {
+    assistantMessage = await insertMessage({
+      content: answer,
+      role: "assistant",
+      status: turnState,
+      threadId: thread.id,
     });
 
-    return NextResponse.json({
+    await insertMessageSources(assistantMessage.id, sources);
+    thread = await getThreadSummary(thread.id);
+  } catch (error) {
+    return jsonError(
+      error instanceof Error ? error.message : "Failed to save answer.",
+      500,
+    );
+  }
+
+  const response: QueryResponse = {
+    answer,
+    sources,
+    thread,
+    turn: buildChatTurn({
       answer,
-      sources: relevantSources,
-    });
-  } catch (error) {
-    console.error("POST /api/query failed during synthesis:", error);
-    return jsonError("Failed to synthesize an answer.", 500);
-  }
+      createdAt: userMessage.created_at,
+      id: assistantMessage.id,
+      question,
+      sources,
+      state: assistantMessage.status,
+    }),
+  };
+
+  return NextResponse.json(response);
 }

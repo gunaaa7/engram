@@ -325,8 +325,9 @@ npm install
 cp .env.example .env.local
 # Fill in keys from Supabase dashboard and OpenAI platform
 
-# 3. Run schema in Supabase SQL editor
-# Paste contents of /db/schema.sql (includes pgvector extension + match_entries function)
+# 3. Apply DB migrations in order
+# Run files under /db/migrations in order
+# Keep /db/schema.sql as the full snapshot, not the primary migration path
 
 # 4. Start dev server
 npm run dev
@@ -364,10 +365,12 @@ engram/
 |  |- AnswerCard.tsx          # LLM answer + source entries
 |- lib/
 |  |- embeddings.ts           # OpenAI embedding helper
+|  |- chats.ts                # Chat thread/title assembly helpers
 |  |- supabase.ts             # Supabase client (server + client)
 |  |- prompts.ts              # System prompt and message builder
 |- db/
-|  |- schema.sql              # Full Postgres schema + pgvector setup
+|  |- migrations/             # Ordered SQL migration files
+|  |- schema.sql              # Full current schema snapshot
 |- public/
 |  |- manifest.json           # PWA manifest
 |  |- icons/                  # PWA icons (192x192, 512x512)
