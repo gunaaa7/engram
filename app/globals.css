@@ -1,14 +1,92 @@
 @import "tailwindcss";
 
 :root {
-  --background: #060914;
-  --background-elevated: rgba(12, 17, 28, 0.9);
-  --foreground: #f5f7fb;
-  --muted: #93a3bb;
-  --line: rgba(148, 163, 184, 0.14);
-  --panel-shadow: 0 30px 90px rgba(2, 6, 23, 0.42);
+  --background: #07090d;
+  --background-elevated: rgba(13, 16, 22, 0.9);
+  --foreground: #f5f3ee;
+  --muted: #9aa4b2;
+  --line: rgba(222, 212, 198, 0.14);
+  --panel-shadow: 0 30px 90px rgba(0, 0, 0, 0.42);
   --font-sans-stack: "Aptos", "Segoe UI Variable Display", "Trebuchet MS", sans-serif;
   --font-mono-stack: "Cascadia Code", "Consolas", "SFMono-Regular", monospace;
+}
+
+.engram-theme {
+  --app-bg: #f3eadf;
+  --app-grid: rgba(97, 75, 44, 0.045);
+  --app-glow-a: rgba(255, 255, 255, 0.84);
+  --app-glow-b: rgba(214, 193, 157, 0.42);
+  --shell-bg: rgba(251, 247, 239, 0.9);
+  --shell-border: #e3d9cc;
+  --surface: #ffffff;
+  --surface-2: #fffaf2;
+  --surface-3: #f6f1e8;
+  --surface-hover: #f2eadf;
+  --border: #ded4c6;
+  --border-strong: #c9baa6;
+  --text: #111827;
+  --text-soft: #26313c;
+  --muted: #667085;
+  --muted-strong: #8a6f45;
+  --accent: #111827;
+  --accent-hover: #26313c;
+  --accent-text: #ffffff;
+  --accent-soft: #f7efe4;
+  --danger: #9f1239;
+  --danger-bg: #fff1f2;
+  --danger-border: #fecaca;
+  --shadow-soft: 0 18px 50px rgba(42, 35, 25, 0.08);
+  --shadow-strong: 0 30px 100px rgba(42, 35, 25, 0.12);
+  background:
+    radial-gradient(circle at 12% 8%, var(--app-glow-a), transparent 28%),
+    radial-gradient(circle at 88% 10%, var(--app-glow-b), transparent 26%),
+    linear-gradient(135deg, var(--app-bg) 0%, #efe2d2 54%, #e9dcc9 100%);
+  color: var(--text);
+}
+
+.engram-theme[data-theme="dark"] {
+  --app-bg: #07090d;
+  --app-grid: rgba(222, 212, 198, 0.045);
+  --app-glow-a: rgba(101, 123, 255, 0.16);
+  --app-glow-b: rgba(242, 149, 82, 0.14);
+  --shell-bg: rgba(13, 16, 22, 0.88);
+  --shell-border: #222936;
+  --surface: #111722;
+  --surface-2: #151c28;
+  --surface-3: #1b2432;
+  --surface-hover: #202a3a;
+  --border: #293241;
+  --border-strong: #4b5567;
+  --text: #f5f3ee;
+  --text-soft: #e6e1d7;
+  --muted: #9aa4b2;
+  --muted-strong: #d7ad74;
+  --accent: #f97316;
+  --accent-hover: #fb923c;
+  --accent-text: #111827;
+  --accent-soft: rgba(249, 115, 22, 0.12);
+  --danger: #fecdd3;
+  --danger-bg: rgba(244, 63, 94, 0.14);
+  --danger-border: rgba(251, 113, 133, 0.36);
+  --shadow-soft: 0 18px 50px rgba(0, 0, 0, 0.28);
+  --shadow-strong: 0 36px 120px rgba(0, 0, 0, 0.42);
+  background:
+    radial-gradient(circle at 8% 0%, rgba(249, 115, 22, 0.14), transparent 30%),
+    radial-gradient(circle at 92% 12%, rgba(59, 130, 246, 0.12), transparent 28%),
+    linear-gradient(135deg, #07090d 0%, #0b111b 58%, #0e1118 100%);
+}
+
+.engram-theme::before {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    linear-gradient(var(--app-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--app-grid) 1px, transparent 1px);
+  background-size: 44px 44px;
+  content: "";
+  mask-image: radial-gradient(circle at center, black, transparent 78%);
+  pointer-events: none;
 }
 
 @theme inline {
@@ -24,15 +102,18 @@
 }
 
 html {
+  min-height: 100%;
   background:
-    radial-gradient(circle at top left, rgba(36, 89, 178, 0.26), transparent 34%),
-    radial-gradient(circle at top right, rgba(14, 116, 144, 0.18), transparent 28%),
-    radial-gradient(circle at bottom center, rgba(59, 130, 246, 0.12), transparent 36%),
-    linear-gradient(180deg, #0a0d18 0%, #05070f 100%);
+    radial-gradient(circle at 8% 0%, rgba(249, 115, 22, 0.14), transparent 30%),
+    radial-gradient(circle at 92% 12%, rgba(59, 130, 246, 0.12), transparent 28%),
+    linear-gradient(135deg, #07090d 0%, #0b111b 58%, #0e1118 100%),
+    #07090d;
+  color-scheme: dark;
 }
 
 body {
-  background: transparent;
+  min-height: 100%;
+  background: #07090d;
   color: var(--foreground);
   font-family: var(--font-sans-stack);
 }
@@ -42,11 +123,11 @@ body::before {
   inset: 0;
   z-index: -2;
   background-image:
-    linear-gradient(rgba(148, 163, 184, 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(148, 163, 184, 0.045) 1px, transparent 1px);
-  background-size: 42px 42px;
+    linear-gradient(rgba(222, 212, 198, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(222, 212, 198, 0.045) 1px, transparent 1px);
+  background-size: 44px 44px;
   content: "";
-  mask-image: radial-gradient(circle at center, black, transparent 78%);
+  mask-image: radial-gradient(circle at center, black, transparent 76%);
 }
 
 body::after {
@@ -54,28 +135,43 @@ body::after {
   inset: 0;
   z-index: -1;
   background:
-    radial-gradient(circle at 20% 20%, rgba(125, 211, 252, 0.08), transparent 18%),
-    radial-gradient(circle at 82% 12%, rgba(34, 197, 94, 0.06), transparent 20%),
-    radial-gradient(circle at 55% 85%, rgba(56, 189, 248, 0.08), transparent 22%);
+    radial-gradient(circle at 50% 0%, rgba(249, 115, 22, 0.1), transparent 35%),
+    radial-gradient(circle at 75% 85%, rgba(59, 130, 246, 0.08), transparent 26%);
   content: "";
+  pointer-events: none;
 }
 
 a,
 button,
 input,
+select,
 textarea {
   -webkit-tap-highlight-color: transparent;
 }
 
+button,
+select,
+textarea {
+  font: inherit;
+}
+
+.chat-textarea {
+  scrollbar-width: none;
+}
+
+.chat-textarea::-webkit-scrollbar {
+  display: none;
+}
+
 ::selection {
-  background: rgba(56, 189, 248, 0.3);
+  background: rgba(249, 115, 22, 0.3);
   color: var(--foreground);
 }
 
 .glass-panel {
   background:
-    linear-gradient(180deg, rgba(11, 16, 26, 0.96), rgba(7, 11, 20, 0.88)),
-    rgba(7, 11, 20, 0.74);
+    linear-gradient(180deg, rgba(13, 16, 22, 0.96), rgba(11, 17, 27, 0.88)),
+    rgba(13, 16, 22, 0.78);
   border: 1px solid var(--line);
   box-shadow: var(--panel-shadow);
   border-radius: 2rem;
@@ -83,11 +179,11 @@ textarea {
 }
 
 .panel-surface {
-  background: linear-gradient(180deg, rgba(12, 23, 35, 0.96), rgba(8, 18, 29, 0.96));
+  background: linear-gradient(180deg, rgba(17, 23, 34, 0.98), rgba(13, 16, 22, 0.96));
   box-shadow: var(--panel-shadow);
 }
 
 .noise-overlay {
-  background-image: radial-gradient(rgba(255, 255, 255, 0.03) 0.75px, transparent 0.75px);
+  background-image: radial-gradient(rgba(222, 212, 198, 0.035) 0.75px, transparent 0.75px);
   background-size: 12px 12px;
 }

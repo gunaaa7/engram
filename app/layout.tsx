@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#1B4F72",
+  themeColor: "#07090D",
   colorScheme: "dark",
 };
 
@@ -31,10 +31,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full antialiased">
+    <html
+      lang="en"
+      className="h-full antialiased"
+      style={{ backgroundColor: "#07090d", colorScheme: "dark" }}
+    >
       <head>
         <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#1B4F72" />
+        <meta name="theme-color" content="#07090D" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta
           name="apple-mobile-web-app-status-bar-style"
@@ -45,6 +49,7 @@ export default function RootLayout({
       <body
         suppressHydrationWarning
         className="min-h-full flex flex-col"
+        style={{ backgroundColor: "#07090d" }}
       >
         {children}
       </body>
