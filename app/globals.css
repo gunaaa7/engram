@@ -8,6 +8,7 @@
   --line: rgba(222, 212, 198, 0.14);
   --panel-shadow: 0 30px 90px rgba(0, 0, 0, 0.42);
   --font-sans-stack: "Aptos", "Segoe UI Variable Display", "Trebuchet MS", sans-serif;
+  --font-serif-stack: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", "URW Palladio L", serif;
   --font-mono-stack: "Cascadia Code", "Consolas", "SFMono-Regular", monospace;
 }
 
@@ -89,11 +90,34 @@
   pointer-events: none;
 }
 
+.landing-auth-theme {
+  --shell-bg: rgba(255, 250, 242, 0.94);
+  --shell-border: #eadbc9;
+  --surface: #fffdf8;
+  --surface-2: #fff7ed;
+  --surface-3: #f8efe4;
+  --surface-hover: #f4eadc;
+  --border: #dfcfba;
+  --border-strong: #cfb391;
+  --text: #1c1917;
+  --text-soft: #44382e;
+  --muted: #7c6f63;
+  --muted-strong: #a46a4c;
+  --accent: #d4714e;
+  --accent-hover: #b85a3a;
+  --accent-text: #ffffff;
+  --danger: #9f1239;
+  --danger-bg: #fff1f2;
+  --danger-border: #fecaca;
+  --shadow-strong: 0 30px 100px rgba(42, 35, 25, 0.12);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
   --font-sans: var(--font-sans-stack);
+  --font-serif: var(--font-serif-stack);
   --font-mono: var(--font-mono-stack);
 }
 
@@ -139,6 +163,46 @@ body::after {
     radial-gradient(circle at 75% 85%, rgba(59, 130, 246, 0.08), transparent 26%);
   content: "";
   pointer-events: none;
+}
+
+.landing-page {
+  background:
+    radial-gradient(circle at 14% 18%, rgba(255, 252, 246, 0.98), transparent 24%),
+    radial-gradient(circle at 88% 10%, rgba(236, 197, 132, 0.22), transparent 24%),
+    linear-gradient(135deg, #f7efdf 0%, #f2e6d4 48%, #ecddc6 100%);
+}
+
+.landing-page::before {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(124, 87, 37, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(124, 87, 37, 0.03) 1px, transparent 1px);
+  background-size: 132px 132px;
+  content: "";
+  mask-image: radial-gradient(circle at center, black, transparent 88%);
+  pointer-events: none;
+}
+
+.landing-orb {
+  position: absolute;
+  width: 22rem;
+  height: 22rem;
+  border-radius: 9999px;
+  filter: blur(84px);
+  opacity: 0.8;
+}
+
+.landing-orb-left {
+  left: -6rem;
+  top: 8rem;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.landing-orb-right {
+  right: -5rem;
+  top: 5rem;
+  background: rgba(231, 193, 129, 0.28);
 }
 
 a,

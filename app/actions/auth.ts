@@ -76,7 +76,7 @@ export async function login(
     };
   }
 
-  redirect("/");
+  redirect("/memory");
 }
 
 export async function signup(
@@ -117,7 +117,7 @@ export async function signup(
   }
 
   if (data.session) {
-    redirect("/");
+    redirect("/memory");
   }
 
   return {
@@ -129,5 +129,5 @@ export async function signup(
 export async function logout() {
   const supabase = await createServerAuthClient();
   await supabase.auth.signOut();
-  redirect("/login");
+  redirect("/");
 }

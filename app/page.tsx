@@ -1,12 +1,18 @@
-import { EngramApp } from "@/components/EngramApp";
-import { requireAuthenticatedUser } from "@/lib/supabaseAuthServer";
+import { HomePage } from "@/components/HomePage";
+import { getAuthenticatedUser } from "@/lib/supabaseAuthServer";
 
-export default async function Home() {
-  const user = await requireAuthenticatedUser();
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ auth?: string }>;
+}) {
+  const user = await getAuthenticatedUser();
+  const resolvedSearchParams = await searchParams;
 
   return (
-    <main className="flex min-h-[100dvh] flex-1 overflow-hidden">
-      <EngramApp userEmail={user.email ?? null} />
-    </main>
+    <HomePage
+      isAuthenticated={Boolean(user)}
+      openAuthOnLoad={resolvedSearchParams.auth === "1"}
+    />
   );
 }

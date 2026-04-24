@@ -58,7 +58,7 @@ export const requireAuthenticatedUser = cache(async () => {
   const user = await getAuthenticatedUser();
 
   if (!user) {
-    redirect("/login");
+    redirect("/?auth=1");
   }
 
   return user;

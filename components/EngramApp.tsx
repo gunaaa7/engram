@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   startTransition,
   useEffect,
@@ -1058,9 +1059,12 @@ export function EngramApp({ userEmail }: { userEmail: string | null }) {
       <div className="mx-auto flex h-full w-full max-w-6xl flex-col overflow-hidden rounded-[2.4rem] border border-[var(--shell-border)] bg-[var(--shell-bg)] shadow-[var(--shadow-strong)] backdrop-blur-2xl">
         <header className="shrink-0 border-b border-[var(--border)] px-4 py-4 sm:px-7">
           <div className="grid items-center gap-4 sm:grid-cols-[1fr_auto_1fr]">
-            <p className="text-xs font-semibold uppercase tracking-[0.26em] text-[var(--muted-strong)]">
+            <Link
+              className="text-xs font-semibold uppercase tracking-[0.26em] text-[var(--muted-strong)] transition hover:text-[var(--text)]"
+              href="/"
+            >
               Engram
-            </p>
+            </Link>
 
             <div className="justify-self-center rounded-full border border-[var(--border)] bg-[var(--surface)]/75 p-1 shadow-sm">
               <TabButton
