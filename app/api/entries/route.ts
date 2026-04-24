@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { embed } from "@/lib/embeddings";
 import { jsonError, parseJsonBody } from "@/lib/http";
 import { createServiceSupabaseClient } from "@/lib/supabase";
+import { getAuthenticatedUser } from "@/lib/supabaseAuthServer";
 import type { EntryInputMetadata } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -35,10 +36,17 @@ function parseInputMetadata(value: unknown): EntryInputMetadata {
 }
 
 export async function GET() {
+  const user = await getAuthenticatedUser();
+
+  if (!user) {
+    return jsonError("Authentication required.", 401);
+  }
+
   const supabase = createServiceSupabaseClient();
   const { data, error } = await supabase
     .from("entries")
     .select("id, content, source, input_metadata, created_at")
+    .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -50,6 +58,12 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const user = await getAuthenticatedUser();
+
+  if (!user) {
+    return jsonError("Authentication required.", 401);
+  }
+
   const body = await parseJsonBody<CreateEntryBody>(request);
   const content = typeof body?.content === "string" ? body.content.trim() : "";
   const source = parseSource(body?.source);
@@ -80,6 +94,7 @@ export async function POST(request: Request) {
       source,
       input_metadata: inputMetadata,
       embedding,
+      user_id: user.id,
     })
     .select("id, content, source, input_metadata, created_at")
     .single();

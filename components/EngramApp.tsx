@@ -3,12 +3,14 @@
 import {
   startTransition,
   useEffect,
+  useEffectEvent,
   useRef,
   useState,
   useSyncExternalStore,
   type ComponentProps,
 } from "react";
 
+import { logout } from "@/app/actions/auth";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -184,6 +186,23 @@ function MemoryDetail({
   onClose: () => void;
   onDelete: (id: string) => void;
 }) {
+  const handleEscape = useEffectEvent((event: KeyboardEvent) => {
+    if (event.key !== "Escape") {
+      return;
+    }
+
+    event.preventDefault();
+    onClose();
+  });
+
+  useEffect(() => {
+    window.addEventListener("keydown", handleEscape);
+
+    return () => {
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, []);
+
   return (
     <div className="fixed inset-0 z-50 flex items-end bg-black/35 p-3 backdrop-blur-sm sm:items-center sm:justify-center sm:p-6">
       <article className="w-full max-w-2xl rounded-[2rem] border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-strong)] sm:p-7">
@@ -627,7 +646,7 @@ function ChatComposer({
   );
 }
 
-export function EngramApp() {
+export function EngramApp({ userEmail }: { userEmail: string | null }) {
   const [activeView, setActiveView] = useState<AppView>("memories");
   const theme = useSyncExternalStore(
     subscribeToThemeStore,
@@ -1058,61 +1077,77 @@ export function EngramApp() {
               </TabButton>
             </div>
 
-            <button
-              aria-label={
-                theme === "dark" ? "Switch to light mode" : "Switch to dark mode"
-              }
-              aria-pressed={theme === "light"}
-              className="inline-flex h-10 items-center justify-center justify-self-start rounded-full border border-[var(--border)] bg-[var(--surface)] p-1 text-[var(--text)] transition hover:bg-[var(--surface-hover)] sm:justify-self-end"
-              onClick={() =>
-                writeTheme(theme === "dark" ? "light" : "dark")
-              }
-              type="button"
-            >
+            <div className="flex flex-wrap items-center gap-2 justify-self-start sm:justify-self-end">
               <span
-                className={cn(
-                  "inline-flex size-8 items-center justify-center rounded-full transition",
+                className="max-w-44 truncate rounded-full border border-[var(--border)] bg-[var(--surface)]/70 px-3 py-2 text-xs font-medium text-[var(--muted)]"
+                title={userEmail ?? "Signed in"}
+              >
+                {userEmail ?? "Signed in"}
+              </span>
+              <form action={logout}>
+                <button
+                  className="h-10 rounded-full border border-[var(--border)] bg-[var(--surface)]/70 px-3 text-xs font-medium text-[var(--muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text)]"
+                  type="submit"
+                >
+                  Sign out
+                </button>
+              </form>
+              <button
+                aria-label={
                   theme === "dark"
-                    ? "bg-[var(--accent)] text-[var(--accent-text)] shadow-sm"
-                    : "text-[var(--muted)]",
-                )}
+                    ? "Switch to light mode"
+                    : "Switch to dark mode"
+                }
+                aria-pressed={theme === "light"}
+                className="inline-flex h-10 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] p-1 text-[var(--text)] transition hover:bg-[var(--surface-hover)]"
+                onClick={() => writeTheme(theme === "dark" ? "light" : "dark")}
+                type="button"
               >
-                <svg
-                  aria-hidden="true"
-                  className="size-5"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="1.8"
-                  viewBox="0 0 24 24"
+                <span
+                  className={cn(
+                    "inline-flex size-8 items-center justify-center rounded-full transition",
+                    theme === "dark"
+                      ? "bg-[var(--accent)] text-[var(--accent-text)] shadow-sm"
+                      : "text-[var(--muted)]",
+                  )}
                 >
-                  <path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5 7 7 0 1 0 20.5 14.5Z" />
-                </svg>
-              </span>
-              <span
-                className={cn(
-                  "inline-flex size-8 items-center justify-center rounded-full transition",
-                  theme === "light"
-                    ? "bg-[var(--accent)] text-[var(--accent-text)] shadow-sm"
-                    : "text-[var(--muted)]",
-                )}
-              >
-                <svg
-                  aria-hidden="true"
-                  className="size-5"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="1.8"
-                  viewBox="0 0 24 24"
+                  <svg
+                    aria-hidden="true"
+                    className="size-5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="1.8"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5 7 7 0 1 0 20.5 14.5Z" />
+                  </svg>
+                </span>
+                <span
+                  className={cn(
+                    "inline-flex size-8 items-center justify-center rounded-full transition",
+                    theme === "light"
+                      ? "bg-[var(--accent)] text-[var(--accent-text)] shadow-sm"
+                      : "text-[var(--muted)]",
+                  )}
                 >
-                  <circle cx="12" cy="12" r="4" />
-                  <path d="M12 2v2.5M12 19.5V22M4.93 4.93 6.7 6.7M17.3 17.3l1.77 1.77M2 12h2.5M19.5 12H22M4.93 19.07 6.7 17.3M17.3 6.7l1.77-1.77" />
-                </svg>
-              </span>
-            </button>
+                  <svg
+                    aria-hidden="true"
+                    className="size-5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="1.8"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle cx="12" cy="12" r="4" />
+                    <path d="M12 2v2.5M12 19.5V22M4.93 4.93 6.7 6.7M17.3 17.3l1.77 1.77M2 12h2.5M19.5 12H22M4.93 19.07 6.7 17.3M17.3 6.7l1.77-1.77" />
+                  </svg>
+                </span>
+              </button>
+            </div>
           </div>
         </header>
 

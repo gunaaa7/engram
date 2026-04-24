@@ -14,13 +14,14 @@ The current repo is no longer the default `create-next-app` scaffold. It now inc
 - Show source entries under each answer
 - Delete captured entries
 - Install as a PWA with manifest and icons
+- Sign in or create an account with email/password
 
 ## Stack
 
 - Next.js 16 App Router
 - React 19
 - TypeScript
-- Supabase Postgres + pgvector
+- Supabase Auth + Supabase Postgres + pgvector
 - Google or OpenAI for answer synthesis
 - OpenAI or Google for embeddings
 - Tailwind CSS v4
@@ -36,7 +37,9 @@ The app keeps all database and model access on the server side through Next.js r
 - `DELETE /api/entries/[id]`: remove an entry
 - `POST /api/query`: embed the question, run vector search, and synthesize an answer
 
-The browser does not talk directly to Supabase for data access in the current MVP. Route handlers own reads, writes, retrieval, and model calls.
+The browser does not talk directly to Supabase for Engram data access. Supabase Auth owns login/session cookies, while route handlers own reads, writes, retrieval, model calls, and user authorization.
+
+All Engram rows are scoped by Supabase Auth's `auth.users.id` UUID in `user_id`.
 
 ## Embedding Providers
 
@@ -68,12 +71,16 @@ Create `.env.local` in the project root and set the variables required for your 
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 
 # Use either of these server-side Supabase keys
 SUPABASE_SECRET_KEY=
 # or
 SUPABASE_SERVICE_ROLE_KEY=
+
+# Only required for one-off legacy row backfill
+OWNER_EMAIL=
 
 # Embedding provider selection: "google" or omit for OpenAI
 EMBEDDING_PROVIDER=google
@@ -111,6 +118,7 @@ The repo now keeps database changes in ordered SQL files under [`db/migrations/`
 3. [`db/migrations/0003_chat_tables.sql`](/C:/Guna/Projects/engram/db/migrations/0003_chat_tables.sql)
 4. [`db/migrations/0004_chat_triggers.sql`](/C:/Guna/Projects/engram/db/migrations/0004_chat_triggers.sql)
 5. [`db/migrations/0005_match_entries.sql`](/C:/Guna/Projects/engram/db/migrations/0005_match_entries.sql)
+6. [`db/migrations/0006_auth_ownership.sql`](/C:/Guna/Projects/engram/db/migrations/0006_auth_ownership.sql)
 
 [`db/schema.sql`](/C:/Guna/Projects/engram/db/schema.sql) remains as the full current snapshot for reference and fresh bootstrap use. New DB changes should go into a new migration file first, then be copied into the snapshot.
 
@@ -123,6 +131,7 @@ The current schema does the following:
 - creates persisted chat thread/message/source tables
 - updates thread activity timestamps through database triggers
 - enables row level security
+- stores row ownership with Supabase Auth UUIDs in `user_id`
 - keeps retrieval on exact search by default
 - defines the `match_entries` RPC used by `/api/query`
 
@@ -148,6 +157,14 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
+
+Users can create their own Engram account from `/login`.
+
+To assign existing pre-auth rows with `null` ownership to your account, set `OWNER_EMAIL` to your Supabase Auth email and run:
+
+```bash
+npm run backfill:owner
+```
 
 Production builds currently use webpack because `next-pwa` is wired into the Next.js 16 build:
 
@@ -208,6 +225,7 @@ db/
     0003_chat_tables.sql
     0004_chat_triggers.sql
     0005_match_entries.sql
+    0006_auth_ownership.sql
   README.md
   schema.sql
 docs/
@@ -230,7 +248,7 @@ decisions.md
 ## Product Notes
 
 - The current UI is text-only.
-- Authentication is not implemented in v1.
+- Authentication uses email/password login with public sign-up.
 - Editing is intentionally not supported; entries are delete-and-recapture.
 - The retrieval layer filters out weak matches below similarity `0.20`.
 - The answer view shows source entries so the synthesized response stays inspectable.

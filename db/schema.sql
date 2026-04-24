@@ -17,7 +17,7 @@ create table if not exists entries (
   -- Change to vector(1536) and update EMBEDDING_PROVIDER to switch back to OpenAI
   embedding vector(768),
   created_at timestamptz not null default now(),
-  user_id text
+  user_id uuid
 );
 
 alter table if exists entries
@@ -39,7 +39,7 @@ create table if not exists chat_threads (
   title text not null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  user_id text
+  user_id uuid
 );
 
 create table if not exists chat_messages (
@@ -49,7 +49,7 @@ create table if not exists chat_messages (
   content text not null,
   status text not null default 'complete' check (status in ('complete', 'error')),
   created_at timestamptz not null default now(),
-  user_id text
+  user_id uuid
 );
 
 create table if not exists chat_message_sources (
@@ -67,6 +67,15 @@ create index if not exists chat_messages_thread_id_created_at_idx
 
 create index if not exists chat_message_sources_message_id_idx
   on chat_message_sources (message_id);
+
+create index if not exists entries_user_id_created_at_idx
+  on entries (user_id, created_at desc);
+
+create index if not exists chat_threads_user_id_updated_at_idx
+  on chat_threads (user_id, updated_at desc);
+
+create index if not exists chat_messages_user_id_thread_id_created_at_idx
+  on chat_messages (user_id, thread_id, created_at);
 
 alter table if exists chat_threads
   enable row level security;
@@ -139,7 +148,8 @@ execute function public.sync_chat_thread_activity();
 
 create or replace function public.match_entries(
   query_embedding jsonb,
-  match_count int default 5
+  match_count int default 5,
+  owner_id uuid default null
 )
 returns table (
   id uuid,
@@ -167,6 +177,7 @@ as $$
   from public.entries e
   cross join query q
   where e.embedding is not null
+    and e.user_id = owner_id
   order by e.embedding <=> q.embedding
   limit greatest(match_count, 1);
 $$;

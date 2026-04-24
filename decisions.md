@@ -46,3 +46,8 @@
 - Options considered: keep embeddings tied to OpenAI only, or add a provider abstraction with an env-based switch.
 - Chosen: add an `EMBEDDING_PROVIDER` switch that supports Google embeddings (`text-embedding-004`, 768 dimensions) and OpenAI embeddings (`text-embedding-3-small`, 1536 dimensions).
 - Why: Google provides a free embedding option while preserving the ability to switch back to OpenAI without refactoring call sites. The database vector dimension must match the active provider.
+
+### 10. Supabase Auth user ownership
+- Options considered: store email, store an email hash, or store Supabase Auth user UUIDs in Engram rows.
+- Chosen: store Supabase Auth `auth.users.id` UUIDs in `user_id`.
+- Why: email is mutable and personally identifying, while hashes still couple ownership to a mutable identifier. The Auth UUID is stable, opaque, and intended for authorization boundaries.

@@ -189,6 +189,36 @@ function getSupabaseClient() {
   );
 }
 
+async function findUserByEmail(supabase, ownerEmail) {
+  const normalizedOwnerEmail = ownerEmail.toLowerCase();
+  let page = 1;
+
+  while (true) {
+    const { data, error } = await supabase.auth.admin.listUsers({
+      page,
+      perPage: 1000,
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    const user = data.users.find((candidate) => {
+      return candidate.email?.toLowerCase() === normalizedOwnerEmail;
+    });
+
+    if (user) {
+      return user;
+    }
+
+    if (data.users.length < 1000) {
+      return null;
+    }
+
+    page += 1;
+  }
+}
+
 async function embedText(text, purpose) {
   const provider = getEmbeddingProvider();
   const input = text.trim();
@@ -444,12 +474,48 @@ async function main() {
 
   const queryEmbedding = embeddingStep.result;
   const supabase = getSupabaseClient();
+  let ownerUserId = null;
+
+  if (process.env.OWNER_EMAIL?.trim()) {
+    const ownerStep = await runStep("Resolve OWNER_EMAIL to auth user", async () => {
+      const owner = await findUserByEmail(supabase, process.env.OWNER_EMAIL.trim());
+
+      if (!owner) {
+        throw new Error(
+          `No Supabase Auth user found for OWNER_EMAIL=${process.env.OWNER_EMAIL}.`,
+        );
+      }
+
+      printJson("Owner user:", {
+        email: owner.email,
+        id: owner.id,
+      });
+
+      return owner.id;
+    });
+
+    if (!ownerStep.ok) {
+      process.exit(1);
+    }
+
+    ownerUserId = ownerStep.result;
+  } else {
+    process.stdout.write(
+      "[WARN] OWNER_EMAIL is not set. User-scoped RPC debug will return no rows unless owner_id is null.\n",
+    );
+  }
 
   const entriesStep = await runStep("Load entries from Supabase", async () => {
-    const { data, error } = await supabase
+    let query = supabase
       .from("entries")
       .select("id, content, source, input_metadata, created_at, embedding")
       .order("created_at", { ascending: false });
+
+    if (ownerUserId) {
+      query = query.eq("user_id", ownerUserId);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       throw error;
@@ -484,6 +550,7 @@ async function main() {
     const { data, error } = await supabase.rpc("match_entries", {
       query_embedding: queryEmbedding,
       match_count: options.matchCount,
+      owner_id: ownerUserId,
     });
 
     if (error) {

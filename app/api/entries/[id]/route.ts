@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { jsonError } from "@/lib/http";
 import { createServiceSupabaseClient } from "@/lib/supabase";
+import { getAuthenticatedUser } from "@/lib/supabaseAuthServer";
 
 export const runtime = "nodejs";
 
@@ -12,6 +13,12 @@ export async function DELETE(
   _request: Request,
   context: RouteContext<"/api/entries/[id]">,
 ) {
+  const user = await getAuthenticatedUser();
+
+  if (!user) {
+    return jsonError("Authentication required.", 401);
+  }
+
   const { id } = await context.params;
 
   if (!UUID_PATTERN.test(id)) {
@@ -24,6 +31,7 @@ export async function DELETE(
     .from("entries")
     .select("id")
     .eq("id", id)
+    .eq("user_id", user.id)
     .maybeSingle();
 
   if (lookupError) {
@@ -35,7 +43,11 @@ export async function DELETE(
     return jsonError("Entry not found.", 404);
   }
 
-  const { error: deleteError } = await supabase.from("entries").delete().eq("id", id);
+  const { error: deleteError } = await supabase
+    .from("entries")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", user.id);
 
   if (deleteError) {
     console.error("DELETE /api/entries/[id] failed during delete:", deleteError);

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { assembleChatThreads } from "@/lib/chats";
 import { jsonError } from "@/lib/http";
 import { createServiceSupabaseClient } from "@/lib/supabase";
+import { getAuthenticatedUser } from "@/lib/supabaseAuthServer";
 import type { Entry } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -29,21 +30,26 @@ type ChatMessageSourceRow = {
 };
 
 export async function GET() {
+  const user = await getAuthenticatedUser();
+
+  if (!user) {
+    return jsonError("Authentication required.", 401);
+  }
+
   const supabase = createServiceSupabaseClient();
 
-  const [{ data: threads, error: threadsError }, { data: messages, error: messagesError }, { data: sourceLinks, error: sourceLinksError }] =
+  const [{ data: threads, error: threadsError }, { data: messages, error: messagesError }] =
     await Promise.all([
       supabase
         .from("chat_threads")
         .select("id, title, created_at, updated_at")
+        .eq("user_id", user.id)
         .order("updated_at", { ascending: false }),
       supabase
         .from("chat_messages")
         .select("id, thread_id, role, content, status, created_at")
+        .eq("user_id", user.id)
         .order("created_at", { ascending: true }),
-      supabase
-        .from("chat_message_sources")
-        .select("message_id, entry_id"),
     ]);
 
   if (threadsError) {
@@ -56,16 +62,28 @@ export async function GET() {
     return jsonError("Failed to read chats.", 500);
   }
 
-  if (sourceLinksError) {
-    console.error(
-      "GET /api/chats failed to read message sources:",
-      sourceLinksError,
-    );
-    return jsonError("Failed to read chats.", 500);
+  const messageIds = (messages ?? []).map((message) => message.id);
+  let sourceLinks: ChatMessageSourceRow[] = [];
+
+  if (messageIds.length > 0) {
+    const { data, error } = await supabase
+      .from("chat_message_sources")
+      .select("message_id, entry_id")
+      .in("message_id", messageIds);
+
+    if (error) {
+      console.error(
+        "GET /api/chats failed to read message sources:",
+        error,
+      );
+      return jsonError("Failed to read chats.", 500);
+    }
+
+    sourceLinks = (data ?? []) as ChatMessageSourceRow[];
   }
 
   const entryIds = Array.from(
-    new Set((sourceLinks ?? []).map((sourceLink) => sourceLink.entry_id)),
+    new Set(sourceLinks.map((sourceLink) => sourceLink.entry_id)),
   );
 
   let entries: Entry[] = [];
@@ -74,6 +92,7 @@ export async function GET() {
     const { data, error } = await supabase
       .from("entries")
       .select("id, content, source, input_metadata, created_at")
+      .eq("user_id", user.id)
       .in("id", entryIds);
 
     if (error) {
@@ -87,7 +106,7 @@ export async function GET() {
   const chats = assembleChatThreads({
     entries,
     messages: (messages ?? []) as ChatMessageRow[],
-    sourceLinks: (sourceLinks ?? []) as ChatMessageSourceRow[],
+    sourceLinks,
     threads: (threads ?? []) as ChatThreadRow[],
   });
 

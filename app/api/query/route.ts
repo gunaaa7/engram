@@ -6,6 +6,7 @@ import { jsonError, parseJsonBody } from "@/lib/http";
 import { NO_RELEVANT_MESSAGE } from "@/lib/prompts";
 import { synthesizeAnswer } from "@/lib/synthesis";
 import { createServiceSupabaseClient } from "@/lib/supabase";
+import { getAuthenticatedUser } from "@/lib/supabaseAuthServer";
 import type {
   ChatThreadSummary,
   Entry,
@@ -93,11 +94,13 @@ function cosineSimilarity(a: number[], b: number[]) {
 
 async function getRelevantEntryMatches(
   queryEmbedding: number[],
+  userId: string,
 ): Promise<EntryMatch[]> {
   const supabase = createServiceSupabaseClient();
   const rpcResult = await supabase.rpc("match_entries", {
     query_embedding: queryEmbedding,
     match_count: MATCH_COUNT,
+    owner_id: userId,
   });
 
   if (rpcResult.error) {
@@ -114,7 +117,8 @@ async function getRelevantEntryMatches(
 
   const { data, error } = await supabase
     .from("entries")
-    .select("id, content, source, input_metadata, created_at, embedding");
+    .select("id, content, source, input_metadata, created_at, embedding")
+    .eq("user_id", userId);
 
   if (error) {
     if (rpcResult.error) {
@@ -151,6 +155,7 @@ async function getRelevantEntryMatches(
 async function resolveThread(
   threadId: string | null,
   question: string,
+  userId: string,
 ): Promise<ChatThreadSummary> {
   const supabase = createServiceSupabaseClient();
 
@@ -159,6 +164,7 @@ async function resolveThread(
       .from("chat_threads")
       .select("id, title, created_at, updated_at")
       .eq("id", threadId)
+      .eq("user_id", userId)
       .single();
 
     if (error) {
@@ -173,6 +179,7 @@ async function resolveThread(
     .from("chat_threads")
     .insert({
       title: buildThreadTitle(question),
+      user_id: userId,
     })
     .select("id, title, created_at, updated_at")
     .single();
@@ -185,12 +192,13 @@ async function resolveThread(
   return data as ChatThreadSummary;
 }
 
-async function getThreadSummary(threadId: string) {
+async function getThreadSummary(threadId: string, userId: string) {
   const supabase = createServiceSupabaseClient();
   const { data, error } = await supabase
     .from("chat_threads")
     .select("id, title, created_at, updated_at")
     .eq("id", threadId)
+    .eq("user_id", userId)
     .single();
 
   if (error) {
@@ -206,6 +214,7 @@ async function insertMessage(input: {
   role: "user" | "assistant";
   status: "complete" | "error";
   threadId: string;
+  userId: string;
 }) {
   const supabase = createServiceSupabaseClient();
   const { data, error } = await supabase
@@ -215,6 +224,7 @@ async function insertMessage(input: {
       role: input.role,
       status: input.status,
       thread_id: input.threadId,
+      user_id: input.userId,
     })
     .select("id, content, status, created_at")
     .single();
@@ -247,6 +257,12 @@ async function insertMessageSources(messageId: string, sources: Entry[]) {
 }
 
 export async function POST(request: Request) {
+  const user = await getAuthenticatedUser();
+
+  if (!user) {
+    return jsonError("Authentication required.", 401);
+  }
+
   const body = await parseJsonBody<QueryBody>(request);
   const question =
     typeof body?.question === "string" ? body.question.trim() : "";
@@ -258,7 +274,7 @@ export async function POST(request: Request) {
   let thread: ChatThreadSummary;
 
   try {
-    thread = await resolveThread(parseThreadId(body?.threadId), question);
+    thread = await resolveThread(parseThreadId(body?.threadId), question, user.id);
   } catch (error) {
     return jsonError(
       error instanceof Error ? error.message : "Failed to prepare chat.",
@@ -274,6 +290,7 @@ export async function POST(request: Request) {
       role: "user",
       status: "complete",
       threadId: thread.id,
+      userId: user.id,
     });
   } catch (error) {
     return jsonError(
@@ -288,7 +305,7 @@ export async function POST(request: Request) {
 
   try {
     const queryEmbedding = await embed(question, "query");
-    const matches = await getRelevantEntryMatches(queryEmbedding);
+    const matches = await getRelevantEntryMatches(queryEmbedding, user.id);
 
     sources = matches
       .filter((entry) => entry.similarity >= MIN_SIMILARITY)
@@ -324,10 +341,11 @@ export async function POST(request: Request) {
       role: "assistant",
       status: turnState,
       threadId: thread.id,
+      userId: user.id,
     });
 
     await insertMessageSources(assistantMessage.id, sources);
-    thread = await getThreadSummary(thread.id);
+    thread = await getThreadSummary(thread.id, user.id);
   } catch (error) {
     return jsonError(
       error instanceof Error ? error.message : "Failed to save answer.",

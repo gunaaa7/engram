@@ -1,9 +1,12 @@
 import { EngramApp } from "@/components/EngramApp";
+import { requireAuthenticatedUser } from "@/lib/supabaseAuthServer";
 
-export default function Home() {
+export default async function Home() {
+  const user = await requireAuthenticatedUser();
+
   return (
     <main className="flex min-h-[100dvh] flex-1 overflow-hidden">
-      <EngramApp />
+      <EngramApp userEmail={user.email ?? null} />
     </main>
   );
 }
