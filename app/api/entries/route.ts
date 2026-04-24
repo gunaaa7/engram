@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 
 import { embed } from "@/lib/embeddings";
 import { jsonError, parseJsonBody } from "@/lib/http";
+import {
+  enforceUserWriteRateLimit,
+  getClientIpFromRequest,
+} from "@/lib/rateLimit";
 import { createServiceSupabaseClient } from "@/lib/supabase";
 import { getAuthenticatedUser } from "@/lib/supabaseAuthServer";
 import type { EntryInputMetadata } from "@/lib/types";
@@ -75,6 +79,19 @@ export async function POST(request: Request) {
 
   if (content.length < 10) {
     return jsonError("Content must be at least 10 characters.", 400);
+  }
+
+  const ipAddress = await getClientIpFromRequest(request);
+  const rateLimitResult = await enforceUserWriteRateLimit({
+    ipAddress,
+    scope: "entry-create",
+    userId: user.id,
+  });
+
+  if (!rateLimitResult.allowed) {
+    return jsonError(rateLimitResult.reason ?? "Rate limit exceeded.", 429, {
+      "Retry-After": String(rateLimitResult.retryAfterSeconds),
+    });
   }
 
   let embedding: number[];

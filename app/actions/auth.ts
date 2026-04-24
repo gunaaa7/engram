@@ -1,7 +1,10 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 
+import { isPublicSignupEnabled } from "@/lib/authConfig";
+import { enforceSignupRateLimit, getClientIpFromHeaders } from "@/lib/rateLimit";
 import { createServerAuthClient } from "@/lib/supabaseAuthServer";
 
 export type LoginFormState = {
@@ -83,6 +86,22 @@ export async function signup(
   _previousState: LoginFormState,
   formData: FormData,
 ): Promise<LoginFormState> {
+  if (!isPublicSignupEnabled()) {
+    return {
+      error: "New account creation is disabled for this deployment.",
+    };
+  }
+
+  await headers();
+  const ipAddress = await getClientIpFromHeaders();
+  const rateLimitResult = await enforceSignupRateLimit(ipAddress);
+
+  if (!rateLimitResult.allowed) {
+    return {
+      error: rateLimitResult.reason,
+    };
+  }
+
   const { email, password } = parseCredentials(formData);
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
   const fieldErrors = validateEmailAndPassword({

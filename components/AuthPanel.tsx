@@ -1,7 +1,11 @@
 import { LoginForm } from "@/components/LoginForm";
 import { playfairDisplay } from "@/lib/fonts";
 
-export function AuthPanel() {
+export function AuthPanel({
+  allowPublicSignup,
+}: {
+  allowPublicSignup: boolean;
+}) {
   return (
     <section className="landing-auth-theme w-full rounded-[2.4rem] border border-[var(--shell-border)] bg-[var(--shell-bg)] p-6 shadow-[var(--shadow-strong)] backdrop-blur-2xl sm:p-8">
       <div>
@@ -14,11 +18,13 @@ export function AuthPanel() {
           Your memory, one sign-in away.
         </h1>
         <p className="mt-4 max-w-sm text-sm leading-7 text-[var(--muted)]">
-          Sign in to continue, or create an account to start saving memories.
+          {allowPublicSignup
+            ? "Sign in to continue, or create an account to start saving memories."
+            : "Sign in to continue. New account creation is disabled on this deployment."}
         </p>
       </div>
 
-      <LoginForm />
+      <LoginForm allowPublicSignup={allowPublicSignup} />
     </section>
   );
 }

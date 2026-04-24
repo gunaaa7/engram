@@ -1,4 +1,5 @@
 import { HomePage } from "@/components/HomePage";
+import { isPublicSignupEnabled } from "@/lib/authConfig";
 import { getAuthenticatedUser } from "@/lib/supabaseAuthServer";
 
 export default async function Home({
@@ -11,6 +12,7 @@ export default async function Home({
 
   return (
     <HomePage
+      allowPublicSignup={isPublicSignupEnabled()}
       isAuthenticated={Boolean(user)}
       openAuthOnLoad={resolvedSearchParams.auth === "1"}
     />

@@ -81,6 +81,12 @@ SUPABASE_SERVICE_ROLE_KEY=
 
 # Only required for one-off legacy row backfill
 OWNER_EMAIL=
+ALLOW_PUBLIC_SIGNUP=false
+PUBLIC_SIGNUP_LIMIT_PER_IP_PER_HOUR=5
+ENTRY_CREATE_LIMIT_PER_USER_PER_HOUR=60
+ENTRY_CREATE_LIMIT_PER_IP_PER_HOUR=120
+QUERY_LIMIT_PER_USER_PER_HOUR=30
+QUERY_LIMIT_PER_IP_PER_HOUR=60
 
 # Embedding provider selection: "google" or omit for OpenAI
 EMBEDDING_PROVIDER=google
@@ -108,6 +114,8 @@ Notes:
 - Embeddings use Google only when `EMBEDDING_PROVIDER=google`; otherwise they use OpenAI.
 - Synthesis uses the provider and model selected by `SYNTHESIS_PROVIDER` and `SYNTHESIS_MODEL`.
 - `SUPABASE_SECRET_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are treated as interchangeable server-side credentials by the app.
+- Public signup is disabled by default for deployment safety. Set `ALLOW_PUBLIC_SIGNUP=true` only if you are comfortable exposing model-backed endpoints to self-serve signups.
+- If you enable public signup, apply `db/migrations/0007_rate_limits.sql` first so signup, memory creation, and query routes are rate-limited through Supabase.
 
 ## Database Setup
 
@@ -119,6 +127,7 @@ The repo now keeps database changes in ordered SQL files under [`db/migrations/`
 4. [`db/migrations/0004_chat_triggers.sql`](/C:/Guna/Projects/engram/db/migrations/0004_chat_triggers.sql)
 5. [`db/migrations/0005_match_entries.sql`](/C:/Guna/Projects/engram/db/migrations/0005_match_entries.sql)
 6. [`db/migrations/0006_auth_ownership.sql`](/C:/Guna/Projects/engram/db/migrations/0006_auth_ownership.sql)
+7. [`db/migrations/0007_rate_limits.sql`](/C:/Guna/Projects/engram/db/migrations/0007_rate_limits.sql)
 
 [`db/schema.sql`](/C:/Guna/Projects/engram/db/schema.sql) remains as the full current snapshot for reference and fresh bootstrap use. New DB changes should go into a new migration file first, then be copied into the snapshot.
 
@@ -158,7 +167,7 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-Users can create their own Engram account from `/login`.
+With the default deploy configuration, users must sign in with an existing account. If you want open self-signup, set `ALLOW_PUBLIC_SIGNUP=true` and apply the rate-limit migration first.
 
 To assign existing pre-auth rows with `null` ownership to your account, set `OWNER_EMAIL` to your Supabase Auth email and run:
 
@@ -248,7 +257,8 @@ decisions.md
 ## Product Notes
 
 - The current UI is text-only.
-- Authentication uses email/password login with public sign-up.
+- Authentication uses email/password login. Public sign-up is opt-in through `ALLOW_PUBLIC_SIGNUP=true`.
+- Signup, memory creation, and query routes can be rate-limited through `public.consume_rate_limit` in `db/migrations/0007_rate_limits.sql`.
 - Editing is intentionally not supported; entries are delete-and-recapture.
 - The retrieval layer filters out weak matches below similarity `0.20`.
 - The answer view shows source entries so the synthesized response stays inspectable.

@@ -8,7 +8,11 @@ import { Input } from "@/components/ui/input";
 
 const INITIAL_STATE: LoginFormState = {};
 
-export function LoginForm() {
+export function LoginForm({
+  allowPublicSignup,
+}: {
+  allowPublicSignup: boolean;
+}) {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [loginState, loginAction, loginPending] = useActionState(
     login,
@@ -24,7 +28,9 @@ export function LoginForm() {
 
   return (
     <div className="mt-8">
-      <div className="grid grid-cols-2 rounded-full border border-[var(--border)] bg-[var(--surface)]/60 p-1">
+      <div
+        className={`grid rounded-full border border-[var(--border)] bg-[var(--surface)]/60 p-1 ${allowPublicSignup ? "grid-cols-2" : "grid-cols-1"}`}
+      >
         <button
           className={
             mode === "login"
@@ -36,17 +42,19 @@ export function LoginForm() {
         >
           Sign in
         </button>
-        <button
-          className={
-            mode === "signup"
-              ? "rounded-full bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-text)]"
-              : "rounded-full px-4 py-2 text-sm font-medium text-[var(--muted)] transition hover:text-[var(--text)]"
-          }
-          onClick={() => setMode("signup")}
-          type="button"
-        >
-          Create account
-        </button>
+        {allowPublicSignup ? (
+          <button
+            className={
+              mode === "signup"
+                ? "rounded-full bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-text)]"
+                : "rounded-full px-4 py-2 text-sm font-medium text-[var(--muted)] transition hover:text-[var(--text)]"
+            }
+            onClick={() => setMode("signup")}
+            type="button"
+          >
+            Create account
+          </button>
+        ) : null}
       </div>
 
       <form action={formAction} className="mt-5 space-y-4">
@@ -98,7 +106,7 @@ export function LoginForm() {
           ) : null}
         </div>
 
-        {mode === "signup" ? (
+        {allowPublicSignup && mode === "signup" ? (
           <div>
             <label
               className="mb-2 block text-sm font-medium text-[var(--text-soft)]"

@@ -66,9 +66,11 @@ const exampleQueries = [
 ];
 
 export function HomePage({
+  allowPublicSignup,
   isAuthenticated,
   openAuthOnLoad,
 }: {
+  allowPublicSignup: boolean;
   isAuthenticated: boolean;
   openAuthOnLoad: boolean;
 }) {
@@ -420,7 +422,7 @@ export function HomePage({
               </button>
             </div>
             <div className="rounded-[2.8rem] bg-[rgba(255,245,233,0.34)] p-1 shadow-[0_24px_80px_rgba(35,25,14,0.1)]">
-              <AuthPanel />
+              <AuthPanel allowPublicSignup={allowPublicSignup} />
             </div>
           </div>
         </div>

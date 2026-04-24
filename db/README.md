@@ -10,6 +10,7 @@ Current migration order:
 4. `0004_chat_triggers.sql`
 5. `0005_match_entries.sql`
 6. `0006_auth_ownership.sql`
+7. `0007_rate_limits.sql`
 
 `db/schema.sql` is the full snapshot of the current schema for reference and fresh bootstrap setup. It mirrors the migrations, but it is not the preferred place to add new changes.
 

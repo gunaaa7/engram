@@ -4,6 +4,10 @@ import { buildChatTurn, buildThreadTitle } from "@/lib/chats";
 import { embed } from "@/lib/embeddings";
 import { jsonError, parseJsonBody } from "@/lib/http";
 import { NO_RELEVANT_MESSAGE } from "@/lib/prompts";
+import {
+  enforceUserWriteRateLimit,
+  getClientIpFromRequest,
+} from "@/lib/rateLimit";
 import { synthesizeAnswer } from "@/lib/synthesis";
 import { createServiceSupabaseClient } from "@/lib/supabase";
 import { getAuthenticatedUser } from "@/lib/supabaseAuthServer";
@@ -269,6 +273,19 @@ export async function POST(request: Request) {
 
   if (!question) {
     return jsonError("Question is required.", 400);
+  }
+
+  const ipAddress = await getClientIpFromRequest(request);
+  const rateLimitResult = await enforceUserWriteRateLimit({
+    ipAddress,
+    scope: "query",
+    userId: user.id,
+  });
+
+  if (!rateLimitResult.allowed) {
+    return jsonError(rateLimitResult.reason ?? "Rate limit exceeded.", 429, {
+      "Retry-After": String(rateLimitResult.retryAfterSeconds),
+    });
   }
 
   let thread: ChatThreadSummary;
