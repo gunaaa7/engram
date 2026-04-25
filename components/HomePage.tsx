@@ -139,6 +139,7 @@ export function HomePage({
             <button
               className="inline-flex items-center justify-center rounded-full bg-[#d4714e] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#b85a3a]"
               onClick={() => setIsAuthOpen(true)}
+              suppressHydrationWarning
               type="button"
             >
               Start remembering
@@ -179,6 +180,7 @@ export function HomePage({
               <button
                 className="inline-flex items-center justify-center rounded-full bg-[#d4714e] px-9 py-4 text-[15px] font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#b85a3a]"
                 onClick={() => setIsAuthOpen(true)}
+                suppressHydrationWarning
                 type="button"
               >
                 Start remembering
@@ -375,6 +377,7 @@ export function HomePage({
               <button
                 className="mt-7 inline-flex items-center justify-center rounded-full bg-[#d4714e] px-11 py-4 text-base font-semibold text-white transition hover:bg-[#b85a3a]"
                 onClick={() => setIsAuthOpen(true)}
+                suppressHydrationWarning
                 type="button"
               >
                 Try Engram
@@ -391,39 +394,42 @@ export function HomePage({
       {isAuthOpen ? (
         <div
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(28,25,23,0.22)] backdrop-blur-md"
+          className="fixed inset-0 z-50 overflow-y-auto bg-[rgba(28,25,23,0.22)] backdrop-blur-md"
           onClick={() => setIsAuthOpen(false)}
           role="dialog"
         >
           <div
-            className="flex w-full max-w-[32rem] translate-y-0 flex-col p-4 transition-transform duration-300 ease-out sm:p-6"
+            className="flex min-h-full w-full items-start justify-center px-4 py-5 sm:px-6 sm:py-8"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="mb-3 flex justify-end">
-              <button
-                aria-label="Close sign-in panel"
-                className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-white/70 text-[#44382e] shadow-[0_10px_30px_rgba(42,31,18,0.08)] transition hover:bg-white"
-                onClick={() => setIsAuthOpen(false)}
-                type="button"
-              >
-                <svg
-                  aria-hidden="true"
-                  className="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
+            <div className="w-full max-w-[32rem] translate-y-0 transition-transform duration-300 ease-out">
+              <div className="mb-3 flex justify-end pr-1">
+                <button
+                  aria-label="Close sign-in panel"
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-white/70 text-[#44382e] shadow-[0_10px_30px_rgba(42,31,18,0.08)] transition hover:bg-white"
+                  onClick={() => setIsAuthOpen(false)}
+                  suppressHydrationWarning
+                  type="button"
                 >
-                  <path
-                    d="M6 6l12 12M18 6L6 18"
-                    stroke="currentColor"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="1.8"
-                  />
-                </svg>
-              </button>
-            </div>
-            <div className="rounded-[2.8rem] bg-[rgba(255,245,233,0.34)] p-1 shadow-[0_24px_80px_rgba(35,25,14,0.1)]">
-              <AuthPanel allowPublicSignup={allowPublicSignup} />
+                  <svg
+                    aria-hidden="true"
+                    className="h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      d="M6 6l12 12M18 6L6 18"
+                      stroke="currentColor"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="1.8"
+                    />
+                  </svg>
+                </button>
+              </div>
+              <div className="rounded-[2.8rem] bg-[rgba(255,245,233,0.34)] p-1 shadow-[0_24px_80px_rgba(35,25,14,0.1)]">
+                <AuthPanel allowPublicSignup={allowPublicSignup} />
+              </div>
             </div>
           </div>
         </div>

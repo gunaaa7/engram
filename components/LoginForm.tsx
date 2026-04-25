@@ -29,15 +29,16 @@ export function LoginForm({
   return (
     <div className="mt-8">
       <div
-        className={`grid rounded-full border border-[var(--border)] bg-[var(--surface)]/60 p-1 ${allowPublicSignup ? "grid-cols-2" : "grid-cols-1"}`}
+        className={`grid min-h-14 rounded-full border border-[var(--border)] bg-[var(--surface)]/60 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.45)] ${allowPublicSignup ? "grid-cols-2 gap-1" : "grid-cols-1"}`}
       >
         <button
           className={
             mode === "login"
-              ? "rounded-full bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-text)]"
-              : "rounded-full px-4 py-2 text-sm font-medium text-[var(--muted)] transition hover:text-[var(--text)]"
+              ? "flex h-full min-h-11 items-center justify-center rounded-full bg-[var(--accent)] px-5 text-sm font-semibold text-[var(--accent-text)] shadow-[0_10px_24px_rgba(212,113,78,0.22)]"
+              : "flex h-full min-h-11 items-center justify-center rounded-full px-5 text-sm font-medium text-[var(--muted)] transition hover:text-[var(--text)]"
           }
           onClick={() => setMode("login")}
+          suppressHydrationWarning
           type="button"
         >
           Sign in
@@ -46,10 +47,11 @@ export function LoginForm({
           <button
             className={
               mode === "signup"
-                ? "rounded-full bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-text)]"
-                : "rounded-full px-4 py-2 text-sm font-medium text-[var(--muted)] transition hover:text-[var(--text)]"
+                ? "flex h-full min-h-11 items-center justify-center rounded-full bg-[var(--accent)] px-5 text-sm font-semibold text-[var(--accent-text)] shadow-[0_10px_24px_rgba(212,113,78,0.22)]"
+                : "flex h-full min-h-11 items-center justify-center rounded-full px-5 text-sm font-medium text-[var(--muted)] transition hover:text-[var(--text)]"
             }
             onClick={() => setMode("signup")}
+            suppressHydrationWarning
             type="button"
           >
             Create account
