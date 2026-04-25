@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {
   startTransition,
+  useDeferredValue,
   useEffect,
   useEffectEvent,
   useRef,
@@ -270,6 +271,52 @@ function MemoryEmptyState({ onAdd }: { onAdd: () => void }) {
   );
 }
 
+function MemorySearchBar({
+  onChange,
+  onClear,
+  value,
+}: {
+  onChange: (value: string) => void;
+  onClear: () => void;
+  value: string;
+}) {
+  return (
+    <div className="mt-4 rounded-[1.2rem] border border-[var(--border)] bg-[var(--surface)] px-3 py-1 shadow-[var(--shadow-soft)] transition focus-within:border-[var(--border-strong)]">
+      <div className="flex items-center gap-2.5">
+        <svg
+          aria-hidden="true"
+          className="size-4.5 shrink-0 text-[var(--muted)]"
+          fill="none"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="1.8"
+          viewBox="0 0 24 24"
+        >
+          <circle cx="11" cy="11" r="7" />
+          <path d="m20 20-3.5-3.5" />
+        </svg>
+        <input
+          className="h-7 w-full border-0 bg-transparent py-0 text-sm text-[var(--text)] outline-none placeholder:text-[var(--muted)]"
+          onChange={(event) => onChange(event.target.value)}
+          placeholder="Filter memories..."
+          type="search"
+          value={value}
+        />
+        {value ? (
+          <button
+            className="rounded-full px-2.5 py-1.5 text-[11px] font-medium text-[var(--muted)] transition hover:bg-[var(--surface-3)] hover:text-[var(--text)]"
+            onClick={onClear}
+            type="button"
+          >
+            Clear
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function CaptureBox({
   captureDraft,
   error,
@@ -285,57 +332,113 @@ function CaptureBox({
   onClose: () => void;
   onSaveEntry: () => void;
 }) {
+  const handleEscape = useEffectEvent((event: KeyboardEvent) => {
+    if (event.key !== "Escape") {
+      return;
+    }
+
+    event.preventDefault();
+    onClose();
+  });
+
+  useEffect(() => {
+    window.addEventListener("keydown", handleEscape);
+
+    return () => {
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, []);
+
   return (
-    <form
-      className="rounded-[2rem] border border-[var(--border)] bg-[var(--surface-2)] p-4 shadow-[var(--shadow-soft)] sm:p-5"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void onSaveEntry();
-      }}
-    >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold tracking-[-0.03em] text-[var(--text)]">
-            New memory
-          </h2>
-        </div>
-        <button
-          className="rounded-full px-3 py-1.5 text-sm font-medium text-[var(--muted)] transition hover:bg-[var(--surface)] hover:text-[var(--text)]"
-          onClick={onClose}
-          type="button"
-        >
-          Close
-        </button>
-      </div>
-
-      <Textarea
-        autoFocus
-        className="mt-4 min-h-28 resize-none"
-        onChange={(event) => onCaptureDraftChange(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" && !event.shiftKey) {
-            event.preventDefault();
-            void onSaveEntry();
-          }
+    <div className="fixed inset-0 z-50 flex items-end bg-black/35 p-3 backdrop-blur-sm sm:items-center sm:justify-center sm:p-6">
+      <form
+        className="w-full max-w-2xl rounded-[2rem] border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-strong)] sm:p-7"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void onSaveEntry();
         }}
-        placeholder="Write something you want future you to find..."
-        value={captureDraft}
-      />
+      >
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <Badge variant="secondary">Memory</Badge>
+            <h2 className="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--text)]">
+              Add new memory
+            </h2>
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              Capture something future you should be able to find.
+            </p>
+          </div>
+          <button
+            className="rounded-full px-3 py-2 text-sm font-medium text-[var(--muted)] transition hover:bg-[var(--surface-3)] hover:text-[var(--text)]"
+            onClick={onClose}
+            type="button"
+          >
+            Close
+          </button>
+        </div>
 
-      {error ? (
-        <p className="mt-4 rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger)]">
-          {error}
-        </p>
-      ) : null}
+        <Textarea
+          autoFocus
+          className="mt-6 min-h-40 resize-none rounded-[1.5rem] border-[var(--border)] bg-[var(--surface-2)] px-5 py-4"
+          onChange={(event) => onCaptureDraftChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.shiftKey) {
+              event.preventDefault();
+              void onSaveEntry();
+            }
+          }}
+          placeholder="Write something you want future you to find..."
+          value={captureDraft}
+        />
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--muted)]">
-        <span>Enter saves. Shift+Enter adds a new line.</span>
-        <Button disabled={isSaving} type="submit">
-          {isSaving ? "Saving..." : "Save memory"}
-        </Button>
-      </div>
-    </form>
+        {error ? (
+          <p className="mt-4 rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger)]">
+            {error}
+          </p>
+        ) : null}
+
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--muted)]">
+          <span>Enter saves. Shift+Enter adds a new line.</span>
+          <Button disabled={isSaving} type="submit">
+            {isSaving ? "Saving..." : "Save memory"}
+          </Button>
+        </div>
+      </form>
+    </div>
   );
+}
+
+function MemoryFilteredEmptyState({
+  onAdd,
+  searchValue,
+}: {
+  onAdd: () => void;
+  searchValue: string;
+}) {
+  return (
+    <div className="rounded-[2rem] border border-dashed border-[var(--border-strong)] bg-[var(--surface-2)] px-6 py-14 text-center">
+      <p className="text-xl font-semibold tracking-[-0.03em] text-[var(--text)]">
+        No matching memories.
+      </p>
+      <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-[var(--muted)]">
+        Nothing matched &quot;{searchValue}&quot;. Try a different keyword or
+        add a new memory.
+      </p>
+      <Button className="mt-6" onClick={onAdd} type="button">
+        Add new memory
+      </Button>
+    </div>
+  );
+}
+
+function openEntryMatches(entry: Entry, query: string) {
+  const normalizedQuery = query.trim().toLowerCase();
+
+  if (!normalizedQuery) {
+    return true;
+  }
+
+  return entry.content.toLowerCase().includes(normalizedQuery);
 }
 
 function ChatHistoryPane({
@@ -670,8 +773,10 @@ export function EngramApp({ userEmail }: { userEmail: string | null }) {
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const [draftTurns, setDraftTurns] = useState<ChatTurn[]>([]);
   const [isCaptureOpen, setIsCaptureOpen] = useState(false);
+  const [memorySearchDraft, setMemorySearchDraft] = useState("");
 
   const threadEndRef = useRef<HTMLDivElement | null>(null);
+  const deferredMemorySearch = useDeferredValue(memorySearchDraft);
 
   useEffect(() => {
     let cancelled = false;
@@ -742,6 +847,10 @@ export function EngramApp({ userEmail }: { userEmail: string | null }) {
   const selectedEntry =
     entries.find((entry) => entry.id === selectedEntryId) ?? null;
   const selectedTurnId = activeTurn?.id ?? null;
+  const filteredEntries = entries.filter((entry) =>
+    openEntryMatches(entry, deferredMemorySearch),
+  );
+
   useEffect(() => {
     if (activeView === "chat") {
       threadEndRef.current?.scrollIntoView({
@@ -1050,6 +1159,16 @@ export function EngramApp({ userEmail }: { userEmail: string | null }) {
     setActiveView("chat");
   }
 
+  function handleOpenCapture() {
+    setCaptureError(null);
+    setSelectedEntryId(null);
+    setIsCaptureOpen(true);
+  }
+
+  function handleCloseCapture() {
+    setIsCaptureOpen(false);
+  }
+
   return (
     <div
       className="engram-theme relative h-[100dvh] w-full overflow-hidden px-3 py-4 sm:px-6 lg:px-8"
@@ -1166,21 +1285,20 @@ export function EngramApp({ userEmail }: { userEmail: string | null }) {
                   Click a card to open the full note.
                 </p>
               </div>
-              <Badge variant="outline">{entries.length} saved</Badge>
+              <Badge variant="outline">
+                {memorySearchDraft.trim()
+                  ? `${filteredEntries.length} of ${entries.length} shown`
+                  : `${entries.length} saved`}
+              </Badge>
             </div>
 
-            {isCaptureOpen ? (
-              <div className="mt-5">
-                <CaptureBox
-                  captureDraft={captureDraft}
-                  error={captureError}
-                  isSaving={isSaving}
-                  onCaptureDraftChange={setCaptureDraft}
-                  onClose={() => setIsCaptureOpen(false)}
-                  onSaveEntry={handleSaveEntry}
-                />
-              </div>
-            ) : captureError ? (
+            <MemorySearchBar
+              onChange={setMemorySearchDraft}
+              onClear={() => setMemorySearchDraft("")}
+              value={memorySearchDraft}
+            />
+
+            {!isCaptureOpen && captureError ? (
               <p className="mt-5 rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger)]">
                 {captureError}
               </p>
@@ -1193,30 +1311,49 @@ export function EngramApp({ userEmail }: { userEmail: string | null }) {
                     <MemorySkeleton key={index} />
                   ))}
                 </div>
-              ) : entries.length > 0 ? (
+              ) : entries.length === 0 ? (
+                <MemoryEmptyState onAdd={handleOpenCapture} />
+              ) : filteredEntries.length > 0 ? (
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {entries.map((entry) => (
+                  {filteredEntries.map((entry) => (
                     <MemoryCard
                       entry={entry}
                       key={entry.id}
-                      onOpen={(entry) => setSelectedEntryId(entry.id)}
+                      onOpen={(entry) => {
+                        setIsCaptureOpen(false);
+                        setSelectedEntryId(entry.id);
+                      }}
                     />
                   ))}
                 </div>
               ) : (
-                <MemoryEmptyState onAdd={() => setIsCaptureOpen(true)} />
+                <MemoryFilteredEmptyState
+                  onAdd={handleOpenCapture}
+                  searchValue={memorySearchDraft.trim()}
+                />
               )}
             </div>
 
             <button
-              aria-label="Add memory"
+              aria-label="Add new memory"
               className="sticky bottom-5 ml-auto mt-6 flex h-16 items-center gap-3 rounded-full bg-[var(--accent)] px-6 text-base font-semibold text-[var(--accent-text)] shadow-[0_22px_60px_rgba(0,0,0,0.24)] transition hover:-translate-y-0.5 hover:bg-[var(--accent-hover)]"
-              onClick={() => setIsCaptureOpen(true)}
+              onClick={handleOpenCapture}
               type="button"
             >
               <span className="text-3xl font-light leading-none">+</span>
-              <span>Add memory</span>
+              <span>Add new memory</span>
             </button>
+
+            {isCaptureOpen ? (
+              <CaptureBox
+                captureDraft={captureDraft}
+                error={captureError}
+                isSaving={isSaving}
+                onCaptureDraftChange={setCaptureDraft}
+                onClose={handleCloseCapture}
+                onSaveEntry={handleSaveEntry}
+              />
+            ) : null}
 
             {selectedEntry ? (
               <MemoryDetail
