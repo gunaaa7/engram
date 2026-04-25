@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { AuthPanel } from "@/components/AuthPanel";
+import { BrandMark } from "@/components/BrandMark";
 import { playfairDisplay, plusJakartaSans } from "@/lib/fonts";
 
 const captures = [
@@ -110,11 +111,7 @@ export function HomePage({
 
       <nav className="relative mx-auto flex w-full max-w-[1320px] items-center justify-between px-6 py-5 md:px-14">
         <div className="flex items-center gap-3">
-          <div
-            className={`${playfairDisplay.className} flex h-[38px] w-[38px] items-center justify-center rounded-full bg-[#d4714e] text-base font-extrabold text-white`}
-          >
-            E
-          </div>
+          <BrandMark className="h-[38px] w-[38px] shrink-0" variant="navbar" />
           <span className="text-[19px] font-bold text-[#1c1917]">Engram</span>
         </div>
 
@@ -150,8 +147,8 @@ export function HomePage({
         </div>
       </nav>
 
-      <section className="relative mx-auto grid min-h-[72vh] w-full max-w-[1320px] gap-12 px-6 pb-4 pt-10 md:px-14 lg:grid-cols-[1.1fr_1fr] lg:gap-16 lg:pt-20">
-        <div className="max-w-[560px] pt-4 lg:pt-10">
+      <section className="relative mx-auto grid w-full max-w-[1320px] gap-12 px-6 py-8 md:px-14 md:py-12 lg:min-h-[64vh] lg:grid-cols-[1.1fr_1fr] lg:gap-16 lg:py-16">
+        <div className="max-w-[560px] pt-2 lg:pt-6">
           <div className="inline-flex items-center text-[13px] font-semibold tracking-[0.04em] text-[#d4714e]">
             Personal memory layer
           </div>
@@ -167,7 +164,7 @@ export function HomePage({
 
           <p className="mt-7 max-w-[440px] text-lg leading-[1.7] text-[#44382e]">
             Engram is where scattered thoughts become answerable questions.
-            Capture raw - retrieve smart. No folders, no tags, no friction.
+            Capture raw. Retrieve smart.
           </p>
 
           <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -322,12 +319,12 @@ export function HomePage({
       <section className="bg-[#1c1917] px-6 py-[100px] text-white md:px-14" id="examples">
         <div className="mx-auto max-w-[1320px]">
           <div className="text-[13px] font-semibold uppercase tracking-[0.14em] text-[#d4714e]">
-            Things you can ask
+            Ask your memory
           </div>
           <h2
             className={`${playfairDisplay.className} mt-4 max-w-[500px] text-[40px] font-bold leading-[1.1] sm:text-[44px]`}
           >
-            Your life, answerable in plain English.
+            Your life, answerable in plain language.
           </h2>
 
           <div className="mt-12 grid gap-4 lg:grid-cols-2">
@@ -353,37 +350,41 @@ export function HomePage({
         </div>
       </section>
 
-      <section className="relative mx-auto w-full max-w-[1320px] px-6 py-[120px] text-center md:px-14">
-        <h2
-          className={`${playfairDisplay.className} text-[42px] font-bold leading-[1.1] text-[#1c1917] sm:text-[52px]`}
-        >
-          Stop organizing.
-          <br />
-          Start <span className="italic text-[#d4714e]">remembering.</span>
-        </h2>
-        <p className="mx-auto mt-5 max-w-[440px] text-lg leading-[1.65] text-[#92857a]">
-          One field to capture. One field to ask. That&apos;s the whole
-          product.
-        </p>
-        {isAuthenticated ? (
-          <Link
-            className="mt-10 inline-flex items-center justify-center rounded-full bg-[#d4714e] px-11 py-4 text-base font-semibold text-white transition hover:bg-[#b85a3a]"
-            href="/memory"
-          >
-            Try Engram
-          </Link>
-        ) : (
-          <button
-            className="mt-10 inline-flex items-center justify-center rounded-full bg-[#d4714e] px-11 py-4 text-base font-semibold text-white transition hover:bg-[#b85a3a]"
-            onClick={() => setIsAuthOpen(true)}
-            type="button"
-          >
-            Try Engram
-          </button>
-        )}
+      <section className="relative mx-auto w-full max-w-[1320px] px-6 pb-6 pt-6 md:px-14 md:pb-8 md:pt-8">
+        <div className="border-t border-[#f0e8dc] pt-8 md:pt-10">
+          <div className="mx-auto max-w-[860px] text-center">
+            <div className="text-[12px] font-semibold uppercase tracking-[0.14em] text-[#d4714e]">
+              Ready when you are
+            </div>
+            <h2
+              className={`${playfairDisplay.className} mt-3 text-[38px] font-bold leading-[1.04] text-[#1c1917] sm:text-[46px] md:text-[50px]`}
+            >
+              Stop organizing. Start <span className="italic text-[#d4714e]">remembering.</span>
+            </h2>
+            <p className="mx-auto mt-4 max-w-[560px] text-[17px] leading-[1.6] text-[#7b7068] sm:text-lg">
+              No system to maintain. Just a memory you can use.
+            </p>
+            {isAuthenticated ? (
+              <Link
+                className="mt-7 inline-flex items-center justify-center rounded-full bg-[#d4714e] px-11 py-4 text-base font-semibold text-white transition hover:bg-[#b85a3a]"
+                href="/memory"
+              >
+                Try Engram
+              </Link>
+            ) : (
+              <button
+                className="mt-7 inline-flex items-center justify-center rounded-full bg-[#d4714e] px-11 py-4 text-base font-semibold text-white transition hover:bg-[#b85a3a]"
+                onClick={() => setIsAuthOpen(true)}
+                type="button"
+              >
+                Try Engram
+              </button>
+            )}
+          </div>
+        </div>
       </section>
 
-      <footer className="relative mx-auto flex w-full max-w-[1320px] flex-col gap-2 border-t border-[#f0e8dc] px-6 py-8 text-[13px] text-[#92857a] md:flex-row md:items-center md:justify-between md:px-14">
+      <footer className="relative mx-auto flex w-full max-w-[1320px] flex-col gap-2 px-6 py-4 text-[13px] text-[#92857a] md:flex-row md:items-center md:justify-between md:px-14 md:py-4">
         <span>Engram 2026</span>
       </footer>
 
