@@ -148,7 +148,7 @@ export function HomePage({
         </div>
       </nav>
 
-      <section className="relative mx-auto grid w-full max-w-[1320px] gap-12 px-6 py-8 md:px-14 md:py-12 lg:min-h-[64vh] lg:grid-cols-[1.1fr_1fr] lg:gap-16 lg:py-16">
+      <section className="relative mx-auto grid w-full max-w-[1320px] gap-12 px-6 py-8 md:px-14 md:py-12 lg:grid-cols-[1.1fr_1fr] lg:items-start lg:gap-16 lg:py-16">
         <div className="max-w-[560px] pt-2 lg:pt-6">
           <div className="inline-flex items-center text-[13px] font-semibold tracking-[0.04em] text-[#d4714e]">
             Personal memory layer
