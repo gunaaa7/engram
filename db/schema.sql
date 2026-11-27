@@ -1,3 +1,5 @@
+begin;
+
 -- Snapshot of the current database schema.
 -- Preferred workflow:
 -- 1. Add new changes as ordered files under db/migrations/
@@ -161,7 +163,7 @@ returns table (
 )
 language sql
 stable
-security definer
+security invoker
 set search_path = public
 as $$
   with query as (
@@ -181,16 +183,6 @@ as $$
   order by e.embedding <=> q.embedding
   limit greatest(match_count, 1);
 $$;
-
--- 0006_auth_ownership.sql
-alter table if exists entries
-  alter column user_id type uuid using nullif(user_id, '')::uuid;
-
-alter table if exists chat_threads
-  alter column user_id type uuid using nullif(user_id, '')::uuid;
-
-alter table if exists chat_messages
-  alter column user_id type uuid using nullif(user_id, '')::uuid;
 
 -- 0007_rate_limits.sql
 create table if not exists public.rate_limits (
@@ -215,7 +207,7 @@ returns table (
   retry_after_seconds integer
 )
 language plpgsql
-security definer
+security invoker
 set search_path = public
 as $$
 declare
@@ -304,3 +296,17 @@ begin
     0;
 end;
 $$;
+
+-- 0008_harden_database_access.sql
+revoke all privileges on function public.match_entries(jsonb, integer, uuid)
+  from public, anon, authenticated;
+revoke all privileges on function public.consume_rate_limit(text, integer, integer)
+  from public, anon, authenticated;
+grant execute on function public.match_entries(jsonb, integer, uuid) to service_role;
+grant execute on function public.consume_rate_limit(text, integer, integer) to service_role;
+
+alter table public.rate_limits enable row level security;
+revoke all privileges on table public.rate_limits from public, anon, authenticated;
+grant select, insert, update on table public.rate_limits to service_role;
+
+commit;

@@ -13,10 +13,25 @@ function getRequiredEnv(name: keyof NodeJS.ProcessEnv) {
   return value;
 }
 
-export async function updateAuthSession(request: NextRequest) {
-  let response = NextResponse.next({
-    request,
-  });
+export async function updateAuthSession(
+  request: NextRequest,
+  contentSecurityPolicy?: string,
+) {
+  function continueRequest() {
+    if (!contentSecurityPolicy) {
+      return NextResponse.next({ request });
+    }
+
+    // Next.js reads the policy from the forwarded request to nonce its scripts.
+    const headers = new Headers(request.headers);
+    headers.set("Content-Security-Policy", contentSecurityPolicy);
+    const response = NextResponse.next({ request: { headers } });
+    response.headers.set("Content-Security-Policy", contentSecurityPolicy);
+
+    return response;
+  }
+
+  let response = continueRequest();
 
   const supabase = createServerClient(
     getRequiredEnv("NEXT_PUBLIC_SUPABASE_URL"),
@@ -31,9 +46,7 @@ export async function updateAuthSession(request: NextRequest) {
             request.cookies.set(name, value);
           });
 
-          response = NextResponse.next({
-            request,
-          });
+          response = continueRequest();
 
           cookiesToSet.forEach(({ name, options, value }) => {
             response.cookies.set(name, value, options);

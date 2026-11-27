@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { buildChatTurn, buildThreadTitle } from "@/lib/chats";
+import { buildChatTurn, buildThreadTitle, QUERY_FAILURE_MESSAGE } from "@/lib/chats";
 import { embed } from "@/lib/embeddings";
 import { jsonError, parseJsonBody } from "@/lib/http";
 import { NO_RELEVANT_MESSAGE } from "@/lib/prompts";
@@ -22,8 +22,6 @@ export const runtime = "nodejs";
 
 const MATCH_COUNT = 5;
 const MIN_SIMILARITY = 0.2;
-const QUERY_FAILURE_MESSAGE =
-  "I hit a problem while searching memory for that question.";
 
 type QueryBody = {
   question?: unknown;
@@ -108,7 +106,7 @@ async function getRelevantEntryMatches(
   });
 
   if (rpcResult.error) {
-    console.error("POST /api/query failed during RPC retrieval:", rpcResult.error);
+    console.error("POST /api/query failed during RPC retrieval:", rpcResult.error.code);
   }
 
   const rpcMatches = ((rpcResult.data ?? []) as EntryMatch[]).filter(
@@ -172,7 +170,7 @@ async function resolveThread(
       .single();
 
     if (error) {
-      console.error("POST /api/query failed to read thread:", error);
+      console.error("POST /api/query failed to read thread:", error.code);
       throw new Error("Chat not found.");
     }
 
@@ -189,7 +187,7 @@ async function resolveThread(
     .single();
 
   if (error) {
-    console.error("POST /api/query failed to create thread:", error);
+    console.error("POST /api/query failed to create thread:", error.code);
     throw new Error("Failed to create chat.");
   }
 
@@ -206,7 +204,7 @@ async function getThreadSummary(threadId: string, userId: string) {
     .single();
 
   if (error) {
-    console.error("POST /api/query failed to refresh thread:", error);
+    console.error("POST /api/query failed to refresh thread:", error.code);
     throw new Error("Failed to refresh chat.");
   }
 
@@ -234,7 +232,7 @@ async function insertMessage(input: {
     .single();
 
   if (error) {
-    console.error("POST /api/query failed to create message:", error);
+    console.error("POST /api/query failed to create message:", error.code);
     throw new Error("Failed to save chat message.");
   }
 
@@ -255,7 +253,7 @@ async function insertMessageSources(messageId: string, sources: Entry[]) {
   );
 
   if (error) {
-    console.error("POST /api/query failed to save message sources:", error);
+    console.error("POST /api/query failed to save message sources:", error.code);
     throw new Error("Failed to save chat sources.");
   }
 }
@@ -283,7 +281,7 @@ export async function POST(request: Request) {
   });
 
   if (!rateLimitResult.allowed) {
-    return jsonError(rateLimitResult.reason ?? "Rate limit exceeded.", 429, {
+    return jsonError(rateLimitResult.reason, rateLimitResult.status, {
       "Retry-After": String(rateLimitResult.retryAfterSeconds),
     });
   }
@@ -292,11 +290,8 @@ export async function POST(request: Request) {
 
   try {
     thread = await resolveThread(parseThreadId(body?.threadId), question, user.id);
-  } catch (error) {
-    return jsonError(
-      error instanceof Error ? error.message : "Failed to prepare chat.",
-      500,
-    );
+  } catch {
+    return jsonError("Failed to prepare chat.", 500);
   }
 
   let userMessage: ChatMessageInsertRow;
@@ -309,11 +304,8 @@ export async function POST(request: Request) {
       threadId: thread.id,
       userId: user.id,
     });
-  } catch (error) {
-    return jsonError(
-      error instanceof Error ? error.message : "Failed to save question.",
-      500,
-    );
+  } catch {
+    return jsonError("Failed to save question.", 500);
   }
 
   let answer = NO_RELEVANT_MESSAGE;
@@ -341,11 +333,11 @@ export async function POST(request: Request) {
       });
     }
   } catch (error) {
-    console.error("POST /api/query failed during synthesis flow:", error);
-    answer =
-      error instanceof Error && error.message.trim()
-        ? error.message
-        : QUERY_FAILURE_MESSAGE;
+    console.error(
+      "POST /api/query failed during synthesis flow:",
+      error instanceof Error ? error.name : typeof error,
+    );
+    answer = QUERY_FAILURE_MESSAGE;
     sources = [];
     turnState = "error";
   }
@@ -363,11 +355,8 @@ export async function POST(request: Request) {
 
     await insertMessageSources(assistantMessage.id, sources);
     thread = await getThreadSummary(thread.id, user.id);
-  } catch (error) {
-    return jsonError(
-      error instanceof Error ? error.message : "Failed to save answer.",
-      500,
-    );
+  } catch {
+    return jsonError("Failed to save answer.", 500);
   }
 
   const response: QueryResponse = {
