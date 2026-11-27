@@ -1,5 +1,8 @@
 import type { Entry, ChatThread, ChatThreadSummary, ChatTurn } from "@/lib/types";
 
+export const QUERY_FAILURE_MESSAGE =
+  "I hit a problem while searching memory for that question.";
+
 type ChatRole = "user" | "assistant";
 type PersistedChatTurnState = Exclude<ChatTurn["state"], "loading">;
 
@@ -38,7 +41,7 @@ export function buildChatTurn(input: {
   state: PersistedChatTurnState;
 }): ChatTurn {
   return {
-    answer: input.answer,
+    answer: input.state === "error" ? QUERY_FAILURE_MESSAGE : input.answer,
     createdAt: input.createdAt,
     id: input.id,
     question: input.question,

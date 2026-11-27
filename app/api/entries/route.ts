@@ -89,7 +89,7 @@ export async function POST(request: Request) {
   });
 
   if (!rateLimitResult.allowed) {
-    return jsonError(rateLimitResult.reason ?? "Rate limit exceeded.", 429, {
+    return jsonError(rateLimitResult.reason, rateLimitResult.status, {
       "Retry-After": String(rateLimitResult.retryAfterSeconds),
     });
   }
@@ -99,7 +99,10 @@ export async function POST(request: Request) {
   try {
     embedding = await embed(content, "document");
   } catch (error) {
-    console.error("POST /api/entries failed to generate embedding:", error);
+    console.error(
+      "POST /api/entries failed to generate embedding:",
+      error instanceof Error ? error.name : typeof error,
+    );
     return jsonError("Failed to generate embedding.", 500);
   }
 

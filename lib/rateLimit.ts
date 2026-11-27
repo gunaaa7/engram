@@ -14,18 +14,21 @@ type RateLimitRule = {
   windowSeconds: number;
 };
 
-type RateLimitResult = {
-  allowed: boolean;
-  reason?: string;
-  retryAfterSeconds: number;
-};
+type RateLimitResult =
+  | { allowed: true }
+  | {
+      allowed: false;
+      status: 429 | 503;
+      reason: string;
+      retryAfterSeconds: number;
+    };
 
-type ConsumeRateLimitRow = {
-  allowed: boolean;
-  remaining: number;
-  reset_at: string;
-  retry_after_seconds: number;
-};
+const rateLimiterUnavailable = {
+  allowed: false,
+  status: 503,
+  reason: "This action is temporarily unavailable. Please try again shortly.",
+  retryAfterSeconds: 30,
+} satisfies RateLimitResult;
 
 const DEFAULT_WINDOW_SECONDS = 60 * 60;
 
@@ -127,39 +130,46 @@ function formatRetryAfter(seconds: number) {
   return `${hours} hour${hours === 1 ? "" : "s"}`;
 }
 
-async function consumeRateLimit(bucket: string, rule: RateLimitRule) {
-  const supabase = createServiceSupabaseClient();
-  const result = await supabase.rpc("consume_rate_limit", {
-    p_bucket: bucket,
-    p_limit: rule.limit,
-    p_window_seconds: rule.windowSeconds,
-  });
+async function consumeRateLimit(
+  bucket: string,
+  rule: RateLimitRule,
+): Promise<RateLimitResult> {
+  try {
+    const supabase = createServiceSupabaseClient();
+    const { data, error } = await supabase.rpc("consume_rate_limit", {
+      p_bucket: bucket,
+      p_limit: rule.limit,
+      p_window_seconds: rule.windowSeconds,
+    });
 
-  if (result.error) {
-    console.error("Rate limit RPC failed:", result.error);
+    if (error) {
+      console.error("Rate limit RPC failed:", error.code);
+      return rateLimiterUnavailable;
+    }
 
-    return {
-      allowed: true,
-      remaining: rule.limit,
-      reset_at: new Date(Date.now() + rule.windowSeconds * 1000).toISOString(),
-      retry_after_seconds: 0,
-    } satisfies ConsumeRateLimitRow;
+    const row = Array.isArray(data) ? data[0] : data;
+
+    if (row?.allowed === true) {
+      return { allowed: true };
+    }
+
+    if (
+      row?.allowed === false &&
+      Number.isInteger(row.retry_after_seconds) &&
+      row.retry_after_seconds > 0
+    ) {
+      return buildFailureResult(rule.scope, row.retry_after_seconds);
+    }
+
+    console.error("Rate limit RPC returned an invalid decision.");
+  } catch (error) {
+    console.error(
+      "Rate limit RPC failed:",
+      error instanceof Error ? error.name : typeof error,
+    );
   }
 
-  const row = Array.isArray(result.data)
-    ? ((result.data[0] ?? null) as ConsumeRateLimitRow | null)
-    : ((result.data ?? null) as ConsumeRateLimitRow | null);
-
-  if (!row) {
-    return {
-      allowed: true,
-      remaining: rule.limit,
-      reset_at: new Date(Date.now() + rule.windowSeconds * 1000).toISOString(),
-      retry_after_seconds: 0,
-    } satisfies ConsumeRateLimitRow;
-  }
-
-  return row;
+  return rateLimiterUnavailable;
 }
 
 function buildFailureResult(
@@ -171,6 +181,7 @@ function buildFailureResult(
   if (scope === "signup") {
     return {
       allowed: false,
+      status: 429,
       reason: `Too many sign-up attempts from this connection. Try again in ${windowText}.`,
       retryAfterSeconds,
     };
@@ -179,6 +190,7 @@ function buildFailureResult(
   if (scope === "entry-create") {
     return {
       allowed: false,
+      status: 429,
       reason: `Memory capture limit reached. Try again in ${windowText}.`,
       retryAfterSeconds,
     };
@@ -186,6 +198,7 @@ function buildFailureResult(
 
   return {
     allowed: false,
+    status: 429,
     reason: `Question limit reached. Try again in ${windowText}.`,
     retryAfterSeconds,
   };
@@ -201,31 +214,21 @@ export async function getClientIpFromHeaders() {
 }
 
 export async function enforceSignupRateLimit(ipAddress: string) {
-  const rule = getRule("signup", "ip");
-  const result = await consumeRateLimit(
+  return consumeRateLimit(
     buildBucket({
       key: "ip",
       scope: "signup",
       value: ipAddress,
     }),
-    rule,
+    getRule("signup", "ip"),
   );
-
-  if (result.allowed) {
-    return {
-      allowed: true,
-      retryAfterSeconds: 0,
-    } satisfies RateLimitResult;
-  }
-
-  return buildFailureResult("signup", result.retry_after_seconds);
 }
 
 export async function enforceUserWriteRateLimit(input: {
   ipAddress: string;
   scope: "entry-create" | "query";
   userId: string;
-}) {
+}): Promise<RateLimitResult> {
   const checks = await Promise.all([
     consumeRateLimit(
       buildBucket({
@@ -245,14 +248,5 @@ export async function enforceUserWriteRateLimit(input: {
     ),
   ]);
 
-  const firstFailedCheck = checks.find((check) => !check.allowed);
-
-  if (!firstFailedCheck) {
-    return {
-      allowed: true,
-      retryAfterSeconds: 0,
-    } satisfies RateLimitResult;
-  }
-
-  return buildFailureResult(input.scope, firstFailedCheck.retry_after_seconds);
+  return checks.find((check) => !check.allowed) ?? { allowed: true };
 }
